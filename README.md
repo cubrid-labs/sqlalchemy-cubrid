@@ -184,6 +184,15 @@ Performance benchmarks comparing CUBRID (via pycubrid) against MySQL (via PyMySQ
 - Results published to [GitHub Pages dashboard](https://cubrid-labs.github.io/cubrid-benchmark/)
 
 
+## Related Projects
+
+- [pycubrid](https://github.com/cubrid-labs/pycubrid) — Pure Python DB-API 2.0 driver for CUBRID
+- [cubrid-client](https://github.com/cubrid-labs/cubrid-client) — Native TypeScript client for CUBRID (CAS protocol)
+- [drizzle-cubrid](https://github.com/cubrid-labs/drizzle-cubrid) — Drizzle ORM dialect for CUBRID
+- [cubrid-go](https://github.com/cubrid-labs/cubrid-go) — Pure Go database/sql driver for CUBRID
+- [cubrid-rs](https://github.com/cubrid-labs/cubrid-rs) — Native Rust database driver for CUBRID (sync + async, pure Rust)
+- [cubrid-cookbook](https://github.com/cubrid-labs/cubrid-cookbook) — Production-ready examples for all CUBRID drivers
+- [cubrid-benchmark](https://github.com/cubrid-labs/cubrid-benchmark) — Multi-language benchmark suite for CUBRID
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines and [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for development setup.
