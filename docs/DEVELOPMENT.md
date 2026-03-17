@@ -70,36 +70,50 @@ pre-commit install
 
 ## Project Structure
 
-```
-sqlalchemy-cubrid/
-├── sqlalchemy_cubrid/       # Main package
-│   ├── __init__.py          # Public API, version, type exports
-│   ├── base.py              # ExecutionContext, IdentifierPreparer
-│   ├── compiler.py          # SQL/DDL/Type compilers
-│   ├── dialect.py           # CubridDialect (reflection, connection, etc.)
-│   ├── dml.py               # ON DUPLICATE KEY UPDATE, MERGE constructs
-│   ├── types.py             # CUBRID type system
-│   ├── requirements.py      # SA 2.0 test requirement flags
-│   ├── alembic_impl.py      # Alembic migration support
-│   └── py.typed             # PEP 561 marker
-├── test/                    # Test suite
-│   ├── test_compiler.py     # SQL compilation tests
-│   ├── test_types.py        # Type system tests
-│   ├── test_dialect_offline.py  # Dialect tests (no DB)
-│   ├── test_base.py         # Base module tests
-│   ├── test_requirements.py # SA requirement flag tests
-│   ├── test_dml.py          # DML construct tests
-│   ├── test_alembic.py      # Alembic integration tests
-│   ├── test_integration.py  # Live DB integration tests
-│   ├── test_suite.py        # SA test suite runner
-│   └── conftest.py          # Test fixtures
-├── docs/                    # Documentation
-├── samples/                 # Usage examples
-├── pyproject.toml           # Project config, dependencies
-├── tox.ini                  # Multi-Python test config
-├── docker-compose.yml       # CUBRID Docker setup
-├── Makefile                 # Development shortcuts
-└── CONTRIBUTING.md          # Contribution guidelines
+```mermaid
+graph TD
+    root["sqlalchemy-cubrid/"]
+
+    pkg["sqlalchemy_cubrid/ - Main package"]
+    tests["test/ - Test suite"]
+    docs["docs/ - Documentation"]
+    samples["samples/ - Usage examples"]
+    pyproject["pyproject.toml - Project config, dependencies"]
+    tox["tox.ini - Multi-Python test config"]
+    docker["docker-compose.yml - CUBRID Docker setup"]
+    makefile["Makefile - Development shortcuts"]
+    contributing["CONTRIBUTING.md - Contribution guidelines"]
+
+    root --> pkg
+    root --> tests
+    root --> docs
+    root --> samples
+    root --> pyproject
+    root --> tox
+    root --> docker
+    root --> makefile
+    root --> contributing
+
+    pkg --> init["__init__.py - Public API, version, type exports"]
+    pkg --> base["base.py - ExecutionContext, IdentifierPreparer"]
+    pkg --> compiler["compiler.py - SQL/DDL/Type compilers"]
+    pkg --> dialect["dialect.py - CubridDialect (reflection, connection, etc.)"]
+    pkg --> dml["dml.py - ON DUPLICATE KEY UPDATE, MERGE constructs"]
+    pkg --> types["types.py - CUBRID type system"]
+    pkg --> req["requirements.py - SA 2.0 test requirement flags"]
+    pkg --> alembic["alembic_impl.py - Alembic migration support"]
+    pkg --> typed["py.typed - PEP 561 marker"]
+
+    tests --> tcomp["test_compiler.py - SQL compilation tests"]
+    tests --> ttypes["test_types.py - Type system tests"]
+    tests --> tdialect["test_dialect_offline.py - Dialect tests (no DB)"]
+    tests --> tbase["test_base.py - Base module tests"]
+    tests --> treq["test_requirements.py - SA requirement flag tests"]
+    tests --> tdml["test_dml.py - DML construct tests"]
+    tests --> talembic["test_alembic.py - Alembic integration tests"]
+    tests --> tintegration["test_integration.py - Live DB integration tests"]
+    tests --> tsuite["test_suite.py - SA test suite runner"]
+    tests --> tconftest["conftest.py - Test fixtures"]
 ```
 
 ---

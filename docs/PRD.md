@@ -51,17 +51,28 @@ A complete ground-up rewrite delivering a production-ready CUBRID dialect:
 
 ### 2.1 Module Structure
 
-```
-sqlalchemy_cubrid/          # 8 modules, 968 statements
-├── __init__.py             # Public API — exports types, insert(), merge(), __version__
-├── base.py                 # CubridExecutionContext, CubridIdentifierPreparer
-├── compiler.py             # CubridSQLCompiler, CubridDDLCompiler, CubridTypeCompiler
-├── dialect.py              # CubridDialect — reflection, connection, isolation levels
-├── dml.py                  # ON DUPLICATE KEY UPDATE (Insert), MERGE statement
-├── types.py                # CUBRID type system — numeric, string, LOB, collection
-├── requirements.py         # SA 2.0 test requirement flags (40+ properties)
-├── alembic_impl.py         # CubridImpl for Alembic migrations
-└── py.typed                # PEP 561 marker
+```mermaid
+graph TD
+    root["sqlalchemy_cubrid/ (8 modules, 968 statements)"]
+    init["__init__.py - Public API exports types, insert(), merge(), __version__"]
+    base["base.py - CubridExecutionContext, CubridIdentifierPreparer"]
+    compiler["compiler.py - CubridSQLCompiler, CubridDDLCompiler, CubridTypeCompiler"]
+    dialect["dialect.py - CubridDialect reflection, connection, isolation levels"]
+    dml["dml.py - ON DUPLICATE KEY UPDATE (Insert), MERGE statement"]
+    types["types.py - CUBRID type system numeric, string, LOB, collection"]
+    req["requirements.py - SA 2.0 test requirement flags (40+ properties)"]
+    alembic["alembic_impl.py - CubridImpl for Alembic migrations"]
+    typed["py.typed - PEP 561 marker"]
+
+    root --> init
+    root --> base
+    root --> compiler
+    root --> dialect
+    root --> dml
+    root --> types
+    root --> req
+    root --> alembic
+    root --> typed
 ```
 
 ### 2.2 Dependency Matrix
@@ -393,18 +404,19 @@ Limitations imposed by CUBRID itself (not the dialect):
 
 ### Roadmap Priorities
 
-```
-v1.3.0  ┌─ Driver compatibility hardening
-        └─ Error code mapping + connection pooling
-        
-v1.4.0  ┌─ REPLACE statement
-        └─ Recursive CTEs, full-text search
-        
-v2.0.0  ┌─ SQLAlchemy 2.1+ full compatibility
-        └─ Async support (when driver supports it)
-        
-Long    ┌─ PyPI, docs site, community growth
-term    └─ SA test suite pass rate, benchmarks
+```mermaid
+graph LR
+    v130["v1.3.0"] --> v130a["Driver compatibility hardening"]
+    v130 --> v130b["Error code mapping + connection pooling"]
+
+    v140["v1.4.0"] --> v140a["REPLACE statement"]
+    v140 --> v140b["Recursive CTEs, full-text search"]
+
+    v200["v2.0.0"] --> v200a["SQLAlchemy 2.1+ full compatibility"]
+    v200 --> v200b["Async support (when driver supports it)"]
+
+    longterm["Long-term"] --> longa["PyPI, docs site, community growth"]
+    longterm --> longb["SA test suite pass rate, benchmarks"]
 ```
 
 ---

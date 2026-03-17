@@ -70,13 +70,13 @@ Python driver and requires compilation against the CCI headers.
 
 CUBRIDdb exposes a **limited** exception hierarchy compared to PEP 249:
 
-```
-BaseException
-└── Exception
-    └── CUBRIDdb.Error                  # Base DBAPI error
-        ├── CUBRIDdb.InterfaceError      # Driver-level errors
-        ├── CUBRIDdb.DatabaseError       # Server-level errors
-        └── CUBRIDdb.NotSupportedError   # Unsupported operations
+```mermaid
+graph TD
+    base["BaseException"] --> exc["Exception"]
+    exc --> err["CUBRIDdb.Error (Base DBAPI error)"]
+    err --> iface["CUBRIDdb.InterfaceError (Driver-level errors)"]
+    err --> db["CUBRIDdb.DatabaseError (Server-level errors)"]
+    err --> ns["CUBRIDdb.NotSupportedError (Unsupported operations)"]
 ```
 
 **Missing PEP 249 exceptions** (not provided by the driver):

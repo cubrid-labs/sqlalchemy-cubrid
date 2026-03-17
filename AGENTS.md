@@ -15,18 +15,30 @@ Alembic migration support, and PEP 561 typing.
 
 ## Architecture
 
-```
-sqlalchemy_cubrid/          # Main package (9 modules)
-├── __init__.py             # Public API — exports types, insert(), merge(), __version__
-├── base.py                 # CubridExecutionContext, CubridIdentifierPreparer
-├── compiler.py             # CubridSQLCompiler, CubridDDLCompiler, CubridTypeCompiler
-├── dialect.py              # CubridDialect — reflection, connection, isolation levels
-├── pycubrid_dialect.py     # PyCubridDialect — pure Python driver variant
-├── dml.py                  # ON DUPLICATE KEY UPDATE (Insert), MERGE statement
-├── types.py                # CUBRID type system — numeric, string, LOB, collection
-├── requirements.py         # SA 2.0 test requirement flags (40+ properties)
-├── alembic_impl.py         # CubridImpl for Alembic migrations
-└── py.typed                # PEP 561 marker
+```mermaid
+graph TD
+    root["sqlalchemy_cubrid/ (Main package, 9 modules)"]
+    init["__init__.py - Public API exports types, insert(), merge(), __version__"]
+    base["base.py - CubridExecutionContext, CubridIdentifierPreparer"]
+    compiler["compiler.py - CubridSQLCompiler, CubridDDLCompiler, CubridTypeCompiler"]
+    dialect["dialect.py - CubridDialect reflection, connection, isolation levels"]
+    pycubrid["pycubrid_dialect.py - PyCubridDialect pure Python driver variant"]
+    dml["dml.py - ON DUPLICATE KEY UPDATE (Insert), MERGE statement"]
+    types["types.py - CUBRID type system numeric, string, LOB, collection"]
+    req["requirements.py - SA 2.0 test requirement flags (40+ properties)"]
+    alembic["alembic_impl.py - CubridImpl for Alembic migrations"]
+    typed["py.typed - PEP 561 marker"]
+
+    root --> init
+    root --> base
+    root --> compiler
+    root --> dialect
+    root --> pycubrid
+    root --> dml
+    root --> types
+    root --> req
+    root --> alembic
+    root --> typed
 ```
 
 ### Module Responsibilities

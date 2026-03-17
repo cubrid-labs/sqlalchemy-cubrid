@@ -30,6 +30,23 @@ production-ready SQLAlchemy dialect that supports the modern 2.0 API.
 - Alembic migration support out of the box
 - **Two driver options** — C-extension (`cubrid://`) or pure Python (`cubrid+pycubrid://`)
 
+## Architecture
+
+```mermaid
+flowchart TD
+    app["Application"] --> sa["SQLAlchemy Core/ORM"]
+    sa --> dialect["CubridDialect"]
+    dialect --> pycubrid["pycubrid driver"]
+    dialect --> cext["CUBRIDdb driver"]
+    pycubrid --> server["CUBRID Server"]
+    cext --> server
+```
+
+```mermaid
+flowchart TD
+    expr["SQL Expression"] --> compiler["CubridSQLCompiler"] --> sql["SQL String"]
+```
+
 ## Requirements
 
 - Python 3.10+
