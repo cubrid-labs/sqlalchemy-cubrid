@@ -11,9 +11,6 @@
 [![coverage](https://codecov.io/gh/cubrid-labs/sqlalchemy-cubrid/branch/main/graph/badge.svg)](https://codecov.io/gh/cubrid-labs/sqlalchemy-cubrid)
 [![license](https://img.shields.io/github/license/cubrid-labs/sqlalchemy-cubrid)](https://github.com/cubrid-labs/sqlalchemy-cubrid/blob/main/LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/cubrid-labs/sqlalchemy-cubrid)](https://github.com/cubrid-labs/sqlalchemy-cubrid)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![SQLAlchemy 2.0](https://img.shields.io/badge/SQLAlchemy-2.0-green.svg)](https://www.sqlalchemy.org/)
-[![Coverage 99%](https://img.shields.io/badge/coverage-99%25-brightgreen.svg)](docs/DEVELOPMENT.md#code-coverage)
 <!-- BADGES:END -->
 
 ---
