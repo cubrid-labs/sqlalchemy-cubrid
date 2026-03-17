@@ -301,7 +301,7 @@ class CubridDialect(default.DefaultDialect):
                 row = constraint_result.fetchone()
                 if row:
                     constraint_name = row[0]
-            except Exception:
+            except Exception:  # nosec B110 — constraint name is optional metadata
                 pass
 
         return {
@@ -349,7 +349,7 @@ class CubridDialect(default.DefaultDialect):
                     fk_dict[name]["referred_columns"].append(row[4])
 
             foreign_keys = list(fk_dict.values())
-        except Exception:
+        except Exception:  # nosec B110 — graceful fallback when FK info unavailable
             pass
 
         return foreign_keys
@@ -440,7 +440,7 @@ class CubridDialect(default.DefaultDialect):
                     uc_dict[name] = {"name": name, "column_names": []}
                 uc_dict[name]["column_names"].append(row[1])
             unique_constraints = list(uc_dict.values())
-        except Exception:
+        except Exception:  # nosec B110 — graceful fallback when UC info unavailable
             pass
         return unique_constraints
 

@@ -247,7 +247,7 @@ class CubridCompiler(compiler.SQLCompiler):
                     f"{_render_column_name(column_key)} = {_render_value(value, target_column)}"
                 )
 
-            matched_clause = f"WHEN MATCHED THEN UPDATE SET {', '.join(set_clauses)}"
+            matched_clause = f"WHEN MATCHED THEN UPDATE SET {', '.join(set_clauses)}"  # nosec B608
             matched_where = when_matched.get("where")
             if matched_where is not None:
                 matched_clause += f" WHERE {self.process(matched_where, **kw)}"

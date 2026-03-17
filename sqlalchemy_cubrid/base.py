@@ -413,7 +413,7 @@ class CubridExecutionContext(default.DefaultExecutionContext):
             raw_conn = self.root_connection.connection.dbapi_connection
             if hasattr(raw_conn, "get_last_insert_id"):
                 return raw_conn.get_last_insert_id()
-        except Exception:
+        except Exception:  # nosec B110 — fallback to SQL when driver lacks method
             pass
 
         # Fallback: use SQL function
