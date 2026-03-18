@@ -174,7 +174,7 @@ type mapping, and reflection logic without a database. Only `test_integration.py
 
 - **No RETURNING** — `INSERT/UPDATE/DELETE ... RETURNING` not supported
 - **No native BOOLEAN** — mapped to `SMALLINT` (0/1)
-- **No JSON type** — no JSON data type or functions
+- **JSON support (10.2+)** — full JSON data type with 25+ functions (JSON_OBJECT, JSON_ARRAY, JSON_EXTRACT, JSON_TABLE, etc.); not yet mapped in this dialect
 - **No ARRAY** — uses `SET`, `MULTISET`, `SEQUENCE` collection types
 - **No Sequences** — uses `AUTO_INCREMENT`
 - **No multi-schema** — single-schema model
