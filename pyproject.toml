@@ -37,7 +37,7 @@ cubrid = [
 dev = [
     "pytest>=7.0",
     "pytest-cov",
-    "ruff==0.15.6",
+    "ruff==0.15.7",
     "mypy==1.19.1",
     "bandit[toml]==1.9.4",
     "pre-commit",
