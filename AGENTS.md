@@ -250,18 +250,17 @@ Types: `feat`, `fix`, `docs`, `chore`, `ci`, `style`, `test`, `refactor`
 4. Create GitHub release via `gh release create`
 5. PyPI publish triggers automatically from the release
 
-## Competition Context (공모전 — Performance Loop System)
+## Project Context — Performance Loop System
 
 > This repo provides **ORM-level validation** of the Performance Loop.
-> Timeline: 2026-03-25 ~ 2026-11-04
 > Board: [CUBRID Ecosystem Roadmap](https://github.com/orgs/cubrid-labs/projects/2)
 
-### Competition Role
+### Role
 
 sqlalchemy-cubrid proves that pycubrid driver optimizations propagate to the **application layer**.
 Tier 2 ORM benchmarks (in cubrid-benchmark) measure this repo's overhead vs raw pycubrid.
 
-### Competition Issues on This Repo
+### Related Issues
 
 | Issue | Phase | Priority |
 |-------|-------|----------|
