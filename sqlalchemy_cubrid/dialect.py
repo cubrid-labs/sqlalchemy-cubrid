@@ -51,6 +51,12 @@ from sqlalchemy.types import (
     TIMESTAMP,
 )
 
+# Pre-compiled patterns for column type parsing in get_columns().
+# Avoids re-compilation on every reflection call.
+_RE_TYPE_PARAMS = re.compile(r"\([\d,]+\)")
+_RE_LENGTH = re.compile(r"\((\d+)\)")
+_RE_PRECISION_SCALE = re.compile(r"\((\d+)(?:,\s*(\d+))?\)")
+
 
 # -----------------------------------------------------------------------
 # Column-spec and ischema_names mappings
@@ -224,14 +230,14 @@ class CubridDialect(default.DefaultDialect):
             autoincrement = "auto_increment" in row[5] if row[5] else False
 
             # Strip length/precision from type string for lookup
-            coltype_key = re.sub(r"\([\d,]+\)", "", coltype_raw).strip()
+            coltype_key = _RE_TYPE_PARAMS.sub("", coltype_raw).strip()
 
             if coltype_key in ("CHAR", "VARCHAR", "NCHAR", "CHAR VARYING"):
-                length_match = re.search(r"\((\d+)\)", coltype_raw)
+                length_match = _RE_LENGTH.search(coltype_raw)
                 length = int(length_match.group(1)) if length_match else None
                 coltype = self.ischema_names[coltype_key](length)
             elif coltype_key in ("NUMERIC", "DECIMAL"):
-                params_match = re.search(r"\((\d+)(?:,\s*(\d+))?\)", coltype_raw)
+                params_match = _RE_PRECISION_SCALE.search(coltype_raw)
                 if params_match:
                     precision = int(params_match.group(1))
                     scale = int(params_match.group(2)) if params_match.group(2) else None
@@ -386,26 +392,33 @@ class CubridDialect(default.DefaultDialect):
     @reflection.cache
     def get_indexes(self, connection, table_name, schema=None, **kw):
         """Return index information for *table_name*."""
-        indexes = []
         idict: dict[str, dict] = {}
+
+        # Batch-fetch primary key flags for all indexes on this table
+        # instead of issuing one query per index (N+1 → 1+1).
+        pk_indexes: set[str] = set()
+        try:
+            pk_result = connection.execute(
+                text(
+                    "SELECT index_name, is_primary_key FROM _db_index "
+                    "WHERE class_of.class_name = :table"
+                ),
+                {"table": table_name},
+            )
+            for pk_row in pk_result:
+                if pk_row[1]:
+                    pk_indexes.add(pk_row[0])
+        except Exception:
+            # Fallback: if catalog query fails, pk_indexes stays empty
+            # so no indexes will be wrongly excluded.
+            pass
 
         quoted = self.identifier_preparer.quote_identifier(table_name)
         result = connection.execute(text(f"SHOW INDEXES IN {quoted}"))
         for row in result:
             index_name = row[2]
 
-            # Check if this is a primary key index
-            try:
-                pk_result = connection.execute(
-                    text("SELECT is_primary_key FROM _db_index WHERE index_name = :name"),
-                    {"name": index_name},
-                )
-                pk_row = pk_result.fetchone()
-                is_primary_key = bool(pk_row[0]) if pk_row else False
-            except Exception:
-                is_primary_key = False
-
-            if not is_primary_key:
+            if index_name not in pk_indexes:
                 if index_name in idict:
                     idict[index_name]["column_names"].append(row[4])
                 else:
@@ -415,8 +428,7 @@ class CubridDialect(default.DefaultDialect):
                         "unique": row[1] == 0,
                     }
 
-        indexes = list(idict.values())
-        return indexes
+        return list(idict.values())
 
     @reflection.cache
     def get_unique_constraints(self, connection, table_name, schema=None, **kw):
