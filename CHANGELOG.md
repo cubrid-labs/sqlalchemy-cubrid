@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **pycubrid dependency**: Pin optional `pycubrid` dependency to `>=0.6.0` — required for
   tuple-based `fetchall()` return type introduced in pycubrid v0.6.0 (#72).
 
-## [2.1.1] - 2026-03-13
+## [1.6.1] - 2026-03-13
 
 ### Fixed
 - **`visit_utc_timestamp_func`**: Compile `func.utc_timestamp()` to `UTC_TIMESTAMP()` instead of `UTC_TIME()`, returning a full datetime value instead of time-only (#53).
@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`has_table()`**: Recognize views as existing objects by accepting `class_type IN ('CLASS', 'VCLASS')` instead of only `'CLASS'` (#55).
 
 
-## [2.1.0] - 2026-03-12
+## [1.6.0] - 2026-03-12
 
 ### Added
 - **pycubrid dialect variant**: New `PyCubridDialect` class (`cubrid+pycubrid://` URL scheme)
@@ -38,10 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Documentation**: Updated `docs/CONNECTION.md` and `README.md` with pycubrid driver information.
 
 ### Changed
-- Version bumped to 2.1.0.
+- Version bumped to 1.6.0.
 
 
-## [2.0.0] - 2026-03-12
+## [1.5.0] - 2026-03-12
 
 ### Added
 - **`MONETARY` type class**: New `TypeEngine` subclass for CUBRID's monetary data type.
@@ -65,7 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `alembic_impl.py`: Expanded from 69 lines to 141 lines with full autogenerate support.
 - `types.py`: Added MONETARY and OBJECT classes (319 → 349 lines).
 - `__init__.py`: Exported MONETARY and OBJECT types.
-- Version bumped to 2.0.0.
+- Version bumped to 1.5.0.
 
 ### Investigated (Blocked)
 - **SQLAlchemy 2.1 compatibility**: SA 2.1 does not exist yet (latest: 2.0.48).

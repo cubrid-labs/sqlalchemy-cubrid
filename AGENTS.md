@@ -11,7 +11,7 @@ Alembic migration support, and PEP 561 typing.
 - **Language**: Python 3.10+
 - **Framework**: SQLAlchemy 2.0 – 2.1
 - **License**: MIT
-- **Version**: 2.1.0
+- **Version**: 1.6.1
 
 ## Architecture
 
