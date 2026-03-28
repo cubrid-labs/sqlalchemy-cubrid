@@ -941,6 +941,72 @@ class TestRecursiveCTECompilation:
         assert "JOIN" in sql
 
 
+class TestCacheKeyRegression:
+    """Verify that Insert/Replace cache keys work correctly with inherit_cache=True.
+
+    These tests ensure that different DML variants produce distinct cache keys,
+    preventing cross-contamination of compiled SQL in SQLAlchemy's query cache.
+    """
+
+    def test_plain_insert_cache_key(self):
+        """Plain INSERT should produce a stable cache key."""
+        from sqlalchemy_cubrid.dml import insert
+
+        stmt1 = insert(users).values(name="a")
+        stmt2 = insert(users).values(name="b")
+        key1 = stmt1._generate_cache_key()
+        key2 = stmt2._generate_cache_key()
+        assert key1 is not None
+        assert key2 is not None
+        # Same structure, different bind values → same cache key
+        assert key1[0] == key2[0]
+
+    def test_insert_odku_cache_key_is_none(self):
+        """INSERT … ODKU returns None cache key (matches MySQL dialect behavior).
+
+        OnDuplicateClause doesn't define _traverse_internals, so SA correctly
+        disables caching for ODKU statements. This is intentional — the dynamic
+        update dict makes safe caching non-trivial without full traversal support.
+        """
+        from sqlalchemy_cubrid.dml import insert
+
+        odku = insert(users).values(name="a").on_duplicate_key_update(name="b")
+        odku_key = odku._generate_cache_key()
+        assert odku_key is None
+
+    def test_two_odku_variants_both_uncacheable(self):
+        """ODKU with different column sets both return None (uncacheable)."""
+        from sqlalchemy_cubrid.dml import insert
+
+        odku1 = insert(users).values(name="a").on_duplicate_key_update(name="updated")
+        odku2 = insert(users).values(name="a").on_duplicate_key_update(email="updated")
+        key1 = odku1._generate_cache_key()
+        key2 = odku2._generate_cache_key()
+        # Both uncacheable due to OnDuplicateClause
+        assert key1 is None
+        assert key2 is None
+
+    def test_replace_cache_key(self):
+        """REPLACE should produce a stable, non-None cache key."""
+        from sqlalchemy_cubrid.dml import replace
+
+        stmt = replace(users).values(name="a")
+        key = stmt._generate_cache_key()
+        assert key is not None
+
+    def test_replace_and_insert_cache_keys_differ(self):
+        """REPLACE and INSERT must have different cache keys."""
+        from sqlalchemy_cubrid.dml import insert, replace
+
+        ins = insert(users).values(name="a")
+        rep = replace(users).values(name="a")
+        ins_key = ins._generate_cache_key()
+        rep_key = rep._generate_cache_key()
+        assert ins_key is not None
+        assert rep_key is not None
+        assert ins_key[0] != rep_key[0]
+
+
 class TestDmlModule:
     """Test dml.py module constructs."""
 

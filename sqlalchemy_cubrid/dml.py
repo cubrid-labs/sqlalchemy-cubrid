@@ -49,7 +49,7 @@ class Insert(StandardInsert):
     """
 
     stringify_dialect = "cubrid"
-    inherit_cache = False
+    inherit_cache = True
 
     @property
     def inserted(self) -> ReadOnlyColumnCollection[str, KeyedColumnElement[Any]]:
@@ -119,7 +119,7 @@ class Replace(StandardInsert):
     """
 
     stringify_dialect = "cubrid"
-    inherit_cache = False
+    inherit_cache = True
     __visit_name__ = "replace"
 
     @property

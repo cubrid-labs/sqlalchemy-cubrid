@@ -420,38 +420,55 @@ class TestReflectionMethods:
         connection.info_cache = {}
         connection.dialect_options = {}
 
+        # Batch PK query returns index_name, is_primary_key pairs
+        pk_batch_result = [
+            ("uq_name", 0),
+            ("pk_users", 1),
+            ("idx_email", 0),
+        ]
+
         show_indexes_rows = [
             (None, 0, "uq_name", None, "first_name"),
             (None, 0, "uq_name", None, "last_name"),
             (None, 0, "pk_users", None, "id"),
-            (None, 1, "idx_with_pk_lookup_error", None, "email"),
+            (None, 1, "idx_email", None, "email"),
         ]
 
-        pk_short_row = MagicMock()
-        pk_short_row.fetchone.return_value = (0,)
-        pk_false_row = MagicMock()
-        pk_false_row.fetchone.return_value = (0,)
-        pk_true_row = MagicMock()
-        pk_true_row.fetchone.return_value = (1,)
-
         connection.execute.side_effect = [
-            show_indexes_rows,
-            pk_short_row,
-            pk_false_row,
-            pk_true_row,
-            RuntimeError("cannot check pk"),
+            pk_batch_result,  # batch PK query
+            show_indexes_rows,  # SHOW INDEXES
         ]
 
         indexes = _invoke_reflection(dialect, "get_indexes", connection, "users")
 
         assert indexes == [
             {"name": "uq_name", "column_names": ["first_name", "last_name"], "unique": True},
-            {
-                "name": "idx_with_pk_lookup_error",
-                "column_names": ["email"],
-                "unique": False,
-            },
+            {"name": "idx_email", "column_names": ["email"], "unique": False},
         ]
+
+    def test_get_indexes_batch_pk_query_failure(self):
+        """When the batch PK catalog query fails, all indexes are returned."""
+        dialect = CubridDialect()
+        connection = MagicMock()
+        connection.info_cache = {}
+        connection.dialect_options = {}
+
+        show_indexes_rows = [
+            (None, 0, "uq_name", None, "first_name"),
+            (None, 0, "pk_users", None, "id"),
+        ]
+
+        connection.execute.side_effect = [
+            RuntimeError("catalog unavailable"),  # batch PK query fails
+            show_indexes_rows,  # SHOW INDEXES
+        ]
+
+        indexes = _invoke_reflection(dialect, "get_indexes", connection, "users")
+
+        # Both indexes returned since PK detection failed gracefully
+        assert len(indexes) == 2
+        assert indexes[0]["name"] == "uq_name"
+        assert indexes[1]["name"] == "pk_users"
 
     def test_get_unique_constraints_success_and_exception(self):
         dialect = CubridDialect()
