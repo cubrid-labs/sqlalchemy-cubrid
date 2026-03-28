@@ -500,9 +500,9 @@ class TestTraceQueryIntegration:
 class TestFetchShapeCompatibility:
     """Verify DB-API fetchall/fetchmany return types are compatible with SQLAlchemy.
 
-    pycubrid 0.6.0 changed fetchall() to return list[tuple] instead of
-    tuple[tuple, ...].  These tests ensure SQLAlchemy handles both shapes
-    correctly at the raw DB-API and ORM layers.
+    pycubrid returns list[tuple] from fetchall() and fetchmany().
+    These tests ensure SQLAlchemy handles these shapes correctly at the
+    raw DB-API and ORM layers.
     """
 
     def test_raw_dbapi_fetchall_returns_list(self, engine):
