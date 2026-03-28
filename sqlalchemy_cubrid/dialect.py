@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import Optional
 
@@ -50,6 +51,8 @@ from sqlalchemy.types import (
     TIME,
     TIMESTAMP,
 )
+
+log = logging.getLogger(__name__)
 
 # Pre-compiled patterns for column type parsing in get_columns().
 # Avoids re-compilation on every reflection call.
@@ -411,7 +414,7 @@ class CubridDialect(default.DefaultDialect):
         except Exception:
             # Fallback: if catalog query fails, pk_indexes stays empty
             # so no indexes will be wrongly excluded.
-            pass
+            log.debug("Batch PK query failed for table %s, falling back", table_name)
 
         quoted = self.identifier_preparer.quote_identifier(table_name)
         result = connection.execute(text(f"SHOW INDEXES IN {quoted}"))

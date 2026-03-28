@@ -435,8 +435,8 @@ class TestReflectionMethods:
         ]
 
         connection.execute.side_effect = [
-            pk_batch_result,     # batch PK query
-            show_indexes_rows,   # SHOW INDEXES
+            pk_batch_result,  # batch PK query
+            show_indexes_rows,  # SHOW INDEXES
         ]
 
         indexes = _invoke_reflection(dialect, "get_indexes", connection, "users")
@@ -460,7 +460,7 @@ class TestReflectionMethods:
 
         connection.execute.side_effect = [
             RuntimeError("catalog unavailable"),  # batch PK query fails
-            show_indexes_rows,                    # SHOW INDEXES
+            show_indexes_rows,  # SHOW INDEXES
         ]
 
         indexes = _invoke_reflection(dialect, "get_indexes", connection, "users")
