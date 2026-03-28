@@ -3,7 +3,7 @@
 ## 1. Overview
 
 **Project**: sqlalchemy-cubrid
-**Current Version**: 1.6.1
+**Current Version**: 0.7.1
 **Status**: Production-ready (revived from abandoned 0.0.1)
 **Repository**: [github.com/cubrid-labs/sqlalchemy-cubrid](https://github.com/cubrid-labs/sqlalchemy-cubrid)
 **License**: MIT
@@ -336,20 +336,20 @@ Limitations imposed by CUBRID itself (not the dialect):
 
 ## 7. Release History
 
-| v1.0.0 | 2026-03-12 | Complete rewrite — SA 2.0, all reflection, compiler, types, CI/CD |
-| v1.1.0 | 2026-03-12 | SQL feature expansion — FOR UPDATE, window functions, MERGE, ODKU, COMMENT, DDL extensions |
-| v1.2.0 | 2026-03-12 | Alembic support, edge-case tests, 99% coverage |
-| v1.2.1 | 2026-03-12 | Cleanup — legacy file removal, sample modernization, community files |
-| v1.2.2 | 2026-03-12 | Documentation restructuring — 6 new guide files, README rewrite |
-| v1.3.0 | 2026-03-12 | Driver & compatibility hardening — error codes, do_ping, connection pool tuning |
-| v1.4.0 | 2026-03-12 | Query feature expansion — REPLACE INTO, recursive CTEs, ODKU subqueries, trace |
-| v1.5.0 | 2026-03-12 | Type system expansion, Alembic autogenerate, SA 2.1 readiness, ORM cookbook |
+| v0.1.0 | 2026-03-12 | Complete rewrite — SA 2.0, all reflection, compiler, types, CI/CD |
+| v0.2.0 | 2026-03-12 | SQL feature expansion — FOR UPDATE, window functions, MERGE, ODKU, COMMENT, DDL extensions |
+| v0.3.0 | 2026-03-12 | Alembic support, edge-case tests, 99% coverage |
+| v0.3.1 | 2026-03-12 | Cleanup — legacy file removal, sample modernization, community files |
+| v0.3.2 | 2026-03-12 | Documentation restructuring — 6 new guide files, README rewrite |
+| v0.4.0 | 2026-03-12 | Driver & compatibility hardening — error codes, do_ping, connection pool tuning |
+| v0.5.0 | 2026-03-12 | Query feature expansion — REPLACE INTO, recursive CTEs, ODKU subqueries, trace |
+| v0.6.0 | 2026-03-12 | Type system expansion, Alembic autogenerate, SA 2.1 readiness, ORM cookbook |
 
 ---
 
 ## 8. Roadmap
 
-### v1.3.0 — Driver & Compatibility Hardening
+### v0.4.0 — Driver & Compatibility Hardening
 
 **Goal**: Improve real-world usability and CUBRID driver compatibility.
 
@@ -363,7 +363,7 @@ Limitations imposed by CUBRID itself (not the dialect):
 | CUBRID 12.x support | Test against CUBRID 12 when released, add to CI matrix | Medium | ⏳ Blocked (not released) |
 | Python 3.14 support | Add Python 3.14 to CI matrix when available | Low | ✅ Done |
 
-### v1.4.0 — Query Feature Expansion
+### v0.5.0 — Query Feature Expansion
 
 **Goal**: Maximize SQL feature coverage within CUBRID's capabilities.
 
@@ -376,7 +376,7 @@ Limitations imposed by CUBRID itself (not the dialect):
 | Full-text search | CUBRID has full-text indexes — expose via custom construct if feasible | Low | ❌ Not supported |
 | `EXPLAIN` output | Add `EXPLAIN` prefix support for query plan inspection | Low | ✅ Done (trace_query) |
 
-### v1.5.0 — SQLAlchemy 2.1+ & Async
+### v0.6.0 — SQLAlchemy 2.1+ & Async
 
 **Goal**: Full SQLAlchemy 2.1 alignment and modern async support.
 
@@ -406,13 +406,13 @@ Limitations imposed by CUBRID itself (not the dialect):
 
 ```mermaid
 graph LR
-    v130["v1.3.0"] --> v130a["Driver compatibility hardening"]
+    v130["v0.4.0"] --> v130a["Driver compatibility hardening"]
     v130 --> v130b["Error code mapping + connection pooling"]
 
-    v140["v1.4.0"] --> v140a["REPLACE statement"]
+    v140["v0.5.0"] --> v140a["REPLACE statement"]
     v140 --> v140b["Recursive CTEs, full-text search"]
 
-    v200["v1.5.0"] --> v200a["SQLAlchemy 2.1+ full compatibility"]
+    v200["v0.6.0"] --> v200a["SQLAlchemy 2.1+ full compatibility"]
     v200 --> v200b["Async support (when driver supports it)"]
 
     longterm["Long-term"] --> longa["PyPI, docs site, community growth"]
@@ -450,7 +450,7 @@ by SQLite's dialect for the same reason.
 
 ---
 
-*Last updated: March 2026 · sqlalchemy-cubrid v1.6.1*
+*Last updated: March 2026 · sqlalchemy-cubrid v0.7.1*
 
 ---
 

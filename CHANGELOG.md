@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **pycubrid dependency**: Pin optional `pycubrid` dependency to `>=0.6.0` — required for
   tuple-based `fetchall()` return type introduced in pycubrid v0.6.0 (#72).
 
-## [1.6.1] - 2026-03-13
+## [0.7.1] - 2026-03-13
 
 ### Fixed
 - **`visit_utc_timestamp_func`**: Compile `func.utc_timestamp()` to `UTC_TIMESTAMP()` instead of `UTC_TIME()`, returning a full datetime value instead of time-only (#53).
@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`has_table()`**: Recognize views as existing objects by accepting `class_type IN ('CLASS', 'VCLASS')` instead of only `'CLASS'` (#55).
 
 
-## [1.6.0] - 2026-03-12
+## [0.7.0] - 2026-03-12
 
 ### Added
 - **pycubrid dialect variant**: New `PyCubridDialect` class (`cubrid+pycubrid://` URL scheme)
@@ -38,10 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Documentation**: Updated `docs/CONNECTION.md` and `README.md` with pycubrid driver information.
 
 ### Changed
-- Version bumped to 1.6.0.
+- Version bumped to 0.7.0.
 
 
-## [1.5.0] - 2026-03-12
+## [0.6.0] - 2026-03-12
 
 ### Added
 - **`MONETARY` type class**: New `TypeEngine` subclass for CUBRID's monetary data type.
@@ -65,7 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `alembic_impl.py`: Expanded from 69 lines to 141 lines with full autogenerate support.
 - `types.py`: Added MONETARY and OBJECT classes (319 → 349 lines).
 - `__init__.py`: Exported MONETARY and OBJECT types.
-- Version bumped to 1.5.0.
+- Version bumped to 0.6.0.
 
 ### Investigated (Blocked)
 - **SQLAlchemy 2.1 compatibility**: SA 2.1 does not exist yet (latest: 2.0.48).
@@ -73,7 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Async DBAPI support**: CUBRID Python driver has no async support — blocked.
 
 
-## [1.4.0] - 2026-03-12
+## [0.5.0] - 2026-03-12
 
 ### Added
 - **`REPLACE INTO` statement**: New `Replace` DML construct and `replace()` factory function.
@@ -100,10 +100,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `docs/FEATURE_SUPPORT.md`: Added recursive CTE, lateral joins, full-text search, query trace,
   and REPLACE INTO rows. Updated Known Limitations & Roadmap section.
 - `docs/DML_EXTENSIONS.md`: Added REPLACE INTO, ODKU subquery values, and Query Trace sections.
-- Version bumped to 1.4.0.
+- Version bumped to 0.5.0.
 
 
-## [1.3.0] - 2026-03-12
+## [0.4.0] - 2026-03-12
 
 ### Added
 - **Error code mapping**: `is_disconnect()` detects dropped connections via string-based message
@@ -127,7 +127,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `pyproject.toml`: Added `Programming Language :: Python :: 3.14` classifier.
 
 
-## [1.2.2] - 2026-03-12
+## [0.3.2] - 2026-03-12
 
 ### Added
 - `docs/CONNECTION.md`: Connection guide — URL format, driver setup, troubleshooting.
@@ -140,16 +140,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - `README.md`: Rewritten as a concise landing page (~80 lines); all detailed content moved to `docs/` files.
 - `docs/source/index.rst`: Added links to all new documentation files.
-- `docs/FEATURE_SUPPORT.md`: Updated version reference from v1.2.0 to v1.2.2.
+- `docs/FEATURE_SUPPORT.md`: Updated version reference from v0.3.0 to v0.3.2.
 
 
-## [1.2.1] - 2026-03-12
+## [0.3.1] - 2026-03-12
 
 ### Fixed
 - README: Fixed lint badge referencing deleted `pre-commit.yml` workflow — now points to `ci.yml`.
-- SECURITY.md: Added v1.1.x and v1.2.x to supported versions table.
+- SECURITY.md: Added v0.2.x and v0.3.x to supported versions table.
 - `docs/source/index.rst`: Replaced Sphinx quickstart boilerplate with proper project documentation.
-- `docs/source/conf.py`: Updated version to 1.2.0, added `viewcode` and `intersphinx` extensions.
+- `docs/source/conf.py`: Updated version to 0.3.0, added `viewcode` and `intersphinx` extensions.
 - `docs/source/sqlalchemy_cubrid.rst`: Added `dml` and `alembic_impl` module autodoc sections.
 - `samples/create_engine.py`: Modernized to SA 2.0 API (`text()`, context manager).
 - `samples/cubrid_datatypes.py`: Modernized to SA 2.0 API (`metadata.create_all`, CUBRID types).
@@ -158,7 +158,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - Removed legacy files superseded by `pyproject.toml`: `setup.py`, `setup.cfg`, `CHANGES.rst`, `requirements.txt`, `requirements-dev.txt`, `install_cubrid_python.sh`.
 - Removed duplicate `pre-commit.yml` GitHub Actions workflow (functionality covered by `ci.yml`).
-## [1.2.0] - 2026-03-12
+## [0.3.0] - 2026-03-12
 
 ### Added
 - Alembic migration support via `CubridImpl` (`alembic.ddl` entry-point).
@@ -169,7 +169,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Edge-case tests added for compiler.py, dml.py, and dialect.py — coverage raised from 97% to 99% (306 → 314 tests).
 - `docs/FEATURE_SUPPORT.md`: Alembic row updated from ❌ to ✅.
 
-## [1.1.0] - 2026-03-12
+## [0.2.0] - 2026-03-12
 
 ### Added
 - `FOR UPDATE` clause support (`SELECT … FOR UPDATE [OF col1, col2]`).
@@ -185,7 +185,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Index hint documentation (`USING INDEX`, `USE INDEX`, `FORCE INDEX`, `IGNORE INDEX` via SQLAlchemy’s built-in `with_hint()` / `suffix_with()`).
 - `docs/FEATURE_SUPPORT.md`: Comprehensive feature support matrix updated with all new capabilities.
 
-## [1.0.0] - 2026-03-12
+## [0.1.0] - 2026-03-12
 
 ### Changed
 - **BREAKING**: Minimum Python version raised from 3.6 to 3.10.

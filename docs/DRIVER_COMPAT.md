@@ -38,11 +38,11 @@ Python driver and requires compilation against the CCI headers.
 
 | sqlalchemy-cubrid | CUBRID-Python Driver | CUBRID Server | Python | Status |
 |---|---|---|---|---|
-| 1.3.0 | v11.3.0.51 | 11.4 | 3.10 – 3.14 | ✅ Tested in CI |
-| 1.3.0 | v11.3.0.51 | 11.2 | 3.10 – 3.14 | ✅ Tested in CI |
-| 1.3.0 | v11.3.0.51 | 11.0 | 3.10 – 3.14 | ✅ Tested in CI |
-| 1.3.0 | v11.3.0.51 | 10.2 | 3.10 – 3.14 | ✅ Tested in CI |
-| 1.2.x | v11.3.0.51 | 10.2 – 11.4 | 3.10 – 3.13 | ✅ Tested |
+| 0.4.0 | v11.3.0.51 | 11.4 | 3.10 – 3.14 | ✅ Tested in CI |
+| 0.4.0 | v11.3.0.51 | 11.2 | 3.10 – 3.14 | ✅ Tested in CI |
+| 0.4.0 | v11.3.0.51 | 11.0 | 3.10 – 3.14 | ✅ Tested in CI |
+| 0.4.0 | v11.3.0.51 | 10.2 | 3.10 – 3.14 | ✅ Tested in CI |
+| 0.3.x | v11.3.0.51 | 10.2 – 11.4 | 3.10 – 3.13 | ✅ Tested |
 
 ### CUBRID Server Version Support
 

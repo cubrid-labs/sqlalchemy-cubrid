@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.abspath("../.."))
 project = "sqlalchemy_cubrid"
 copyright = "2021-2026, Yeongseon Choe, Gyeongjun Paik"
 author = "Yeongseon Choe, Gyeongjun Paik"
-release = "1.2.1"
+release = "0.3.1"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

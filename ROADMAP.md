@@ -11,14 +11,14 @@
 - 🗂️ [Org Project Board](https://github.com/orgs/cubrid-labs/projects/2)
 - 🌐 [Ecosystem Roadmap](https://github.com/cubrid-labs/.github/blob/main/ROADMAP.md)
 
-## Next Release — v2.2.0 — Performance & Optimization
+## Next Release — v0.8.0 — Performance & Optimization
 
 - Performance profiling and benchmark integration
 - Query optimization for common patterns
 - Oxyde-inspired benchmarking methodology
 - Per-module microbenchmarks
 
-## Future — v2.3.0 — Ecosystem & Documentation
+## Future — v0.9.0 — Ecosystem & Documentation
 
 - Documentation quality improvements
 - Translation sync and cookbook integration
