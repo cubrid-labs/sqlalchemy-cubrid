@@ -495,3 +495,87 @@ class TestTraceQueryIntegration:
                 parameters={"name": "TraceParam"},
             )
         assert isinstance(traces, list)
+
+
+class TestFetchShapeCompatibility:
+    """Verify DB-API fetchall/fetchmany return types are compatible with SQLAlchemy.
+
+    pycubrid 0.6.0 changed fetchall() to return list[tuple] instead of
+    tuple[tuple, ...].  These tests ensure SQLAlchemy handles both shapes
+    correctly at the raw DB-API and ORM layers.
+    """
+
+    def test_raw_dbapi_fetchall_returns_list(self, engine):
+        """Raw DB-API fetchall() returns a list of tuples."""
+        raw_conn = engine.raw_connection()
+        try:
+            cursor = raw_conn.cursor()
+            cursor.execute("SELECT 1, 'hello'")
+            rows = cursor.fetchall()
+            assert isinstance(rows, list), f"fetchall() returned {type(rows)}, expected list"
+            assert len(rows) >= 1
+            assert isinstance(rows[0], tuple), f"row type is {type(rows[0])}, expected tuple"
+            cursor.close()
+        finally:
+            raw_conn.close()
+
+    def test_raw_dbapi_fetchmany_returns_list(self, engine):
+        """Raw DB-API fetchmany() returns a list of tuples."""
+        raw_conn = engine.raw_connection()
+        try:
+            cursor = raw_conn.cursor()
+            cursor.execute("SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3")
+            rows = cursor.fetchmany(2)
+            assert isinstance(rows, list), f"fetchmany() returned {type(rows)}, expected list"
+            assert len(rows) == 2
+            assert isinstance(rows[0], tuple), f"row type is {type(rows[0])}, expected tuple"
+            cursor.close()
+        finally:
+            raw_conn.close()
+
+    def test_raw_dbapi_fetchone_returns_tuple(self, engine):
+        """Raw DB-API fetchone() returns a single tuple."""
+        raw_conn = engine.raw_connection()
+        try:
+            cursor = raw_conn.cursor()
+            cursor.execute("SELECT 42, 'test'")
+            row = cursor.fetchone()
+            assert isinstance(row, tuple), f"fetchone() returned {type(row)}, expected tuple"
+            assert row == (42, "test")
+            cursor.close()
+        finally:
+            raw_conn.close()
+
+    def test_sqlalchemy_fetchall_with_orm(self, engine, metadata):
+        """SQLAlchemy ORM layer works correctly with pycubrid's fetch results."""
+        users = metadata.tables["integration_users"]
+        with engine.begin() as conn:
+            conn.execute(users.insert().values(name="FetchTest", email="fetch@example.com"))
+
+        with engine.connect() as conn:
+            result = conn.execute(
+                select(users.c.name, users.c.email).where(users.c.name == "FetchTest")
+            )
+            rows = result.fetchall()
+            assert len(rows) >= 1
+            assert rows[0].name == "FetchTest"
+            assert rows[0].email == "fetch@example.com"
+
+    def test_sqlalchemy_fetchmany_with_text(self, engine, metadata):
+        """SQLAlchemy text() query with fetchmany works correctly."""
+        users = metadata.tables["integration_users"]
+        with engine.begin() as conn:
+            for i in range(3):
+                conn.execute(
+                    users.insert().values(name=f"BatchFetch{i}", email=f"batch{i}@example.com")
+                )
+
+        with engine.connect() as conn:
+            result = conn.execute(
+                text("SELECT name, email FROM integration_users WHERE name LIKE :pat"),
+                {"pat": "BatchFetch%"},
+            )
+            rows = result.fetchmany(2)
+            assert len(rows) == 2
+            # Verify rows are accessible by attribute name
+            assert hasattr(rows[0], "name")
