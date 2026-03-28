@@ -48,7 +48,7 @@ alembic = [
     "alembic>=1.7",
 ]
 pycubrid = [
-    "pycubrid",
+    "pycubrid>=0.6.0",
 ]
 
 [project.urls]
