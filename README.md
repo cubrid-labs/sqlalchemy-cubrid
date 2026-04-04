@@ -11,8 +11,6 @@
 [![coverage](https://codecov.io/gh/cubrid-labs/sqlalchemy-cubrid/branch/main/graph/badge.svg)](https://codecov.io/gh/cubrid-labs/sqlalchemy-cubrid)
 [![license](https://img.shields.io/github/license/cubrid-labs/sqlalchemy-cubrid)](https://github.com/cubrid-labs/sqlalchemy-cubrid/blob/main/LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/cubrid-labs/sqlalchemy-cubrid)](https://github.com/cubrid-labs/sqlalchemy-cubrid)
-![dev version](https://img.shields.io/badge/dev-v0.8.0--dev-orange)
-![status](https://img.shields.io/badge/status-stable-brightgreen)
 <!-- BADGES:END -->
 
 ---
