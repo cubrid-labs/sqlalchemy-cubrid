@@ -189,29 +189,10 @@ stmt = insert(users).values(name="Alice").on_duplicate_key_update(name="Alice Up
 `cubrid://` uses the C-extension driver (CUBRIDdb) which requires compilation. `cubrid+pycubrid://` uses the pure Python driver which installs with pip alone — no build tools needed.
 
 
-## Benchmark
-
-Performance benchmarks comparing CUBRID (via pycubrid) against MySQL (via PyMySQL) are tracked in the [cubrid-benchmark](https://github.com/cubrid-labs/cubrid-benchmark) suite.
-
-[![Benchmark](https://github.com/cubrid-labs/cubrid-benchmark/actions/workflows/bench.yml/badge.svg)](https://cubrid-labs.github.io/cubrid-benchmark/)
-
-- **Tier 0** — Functional smoke tests (connect + CRUD)
-- **Tier 1** — Driver throughput: 10K INSERT/SELECT, 1K UPDATE/DELETE
-- Same schema, same seed data, same CI hardware per run
-- Results published to [GitHub Pages dashboard](https://cubrid-labs.github.io/cubrid-benchmark/)
-
-
 ## Related Projects
 
 - [pycubrid](https://github.com/cubrid-labs/pycubrid) — Pure Python DB-API 2.0 driver for CUBRID
-- [cubrid-client](https://github.com/cubrid-labs/cubrid-client) — Native TypeScript client for CUBRID (CAS protocol)
-- [drizzle-cubrid](https://github.com/cubrid-labs/drizzle-cubrid) — Drizzle ORM dialect for CUBRID
-- [cubrid-go](https://github.com/cubrid-labs/cubrid-go) — Pure Go database/sql driver for CUBRID
-- [gorm-cubrid](https://github.com/cubrid-labs/gorm-cubrid) — GORM dialect for CUBRID
-- [cubrid-rs](https://github.com/cubrid-labs/cubrid-rs) — Native Rust database driver for CUBRID (sync + async, pure Rust)
-- [sea-orm-cubrid](https://github.com/cubrid-labs/sea-orm-cubrid) — SeaORM backend for CUBRID
-- [cubrid-cookbook](https://github.com/cubrid-labs/cubrid-cookbook) — Production-ready examples for all CUBRID drivers
-- [cubrid-benchmark](https://github.com/cubrid-labs/cubrid-benchmark) — Multi-language benchmark suite for CUBRID
+- [cubrid-python-cookbook](https://github.com/cubrid-labs/cubrid-python-cookbook) — Production-ready Python examples for CUBRID
 
 ## Roadmap
 
