@@ -5,11 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.8.0] - 2026-04-04
+
+### Added
+- `docs/SUPPORT_MATRIX.md`: Comprehensive support matrix documenting SQLAlchemy versions,
+  Python versions, CUBRID versions, driver compatibility, feature support, type mappings,
+  and known limitations — defines the 1.0 support boundary
+- Documents private SQLAlchemy API usages that require the `<2.2` version pin
 
 ### Changed
 - **pycubrid dependency**: Pin optional `pycubrid` dependency to `>=0.6.0` — required for
-  tuple-based `fetchall()` return type introduced in pycubrid v0.6.0 (#72).
+  tuple-based `fetchall()` return type introduced in pycubrid v0.6.0 (#72)
+- Version bumped to 0.8.0 (stabilization release on path to 1.0)
 
 ## [0.7.1] - 2026-03-13
 
