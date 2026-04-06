@@ -71,6 +71,10 @@ markdown_extensions:
 plugins:
   - search
 
+validation:
+  links:
+    not_found: info
+
 extra:
   social:
     - icon: fontawesome/brands/github
