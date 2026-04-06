@@ -309,4 +309,62 @@ This means `Column(Numeric(10, 2))` automatically uses the CUBRID `NUMERIC` impl
 
 ---
 
+## Machine-Readable Type Mapping Matrix
+
+The table below is designed for copy/paste into tooling pipelines and architecture docs.
+
+| CUBRID Type | SQLAlchemy Type | Python Type | Notes |
+|---|---|---|---|
+| `SHORT` | `sqlalchemy_cubrid.SMALLINT` | `int` | Reflected alias for `SMALLINT`. |
+| `SMALLINT` | `sqlalchemy_cubrid.SMALLINT` | `int` | 16-bit signed integer. |
+| `INTEGER` | `sqlalchemy.Integer` | `int` | Standard 32-bit integer. |
+| `BIGINT` | `sqlalchemy_cubrid.BIGINT` | `int` | 64-bit integer values. |
+| `NUMERIC(p,s)` | `sqlalchemy_cubrid.NUMERIC` | `decimal.Decimal` | Exact numeric; precision 1-38. |
+| `DECIMAL(p,s)` | `sqlalchemy_cubrid.DECIMAL` | `decimal.Decimal` | Synonym of `NUMERIC`. |
+| `FLOAT(p)` | `sqlalchemy_cubrid.FLOAT` | `float` | Approximate numeric, default precision 7. |
+| `REAL` | `sqlalchemy_cubrid.REAL` | `float` | Approximate numeric single precision semantics. |
+| `DOUBLE` | `sqlalchemy_cubrid.DOUBLE` | `float` | Approximate numeric double precision. |
+| `DOUBLE PRECISION` | `sqlalchemy_cubrid.DOUBLE_PRECISION` | `float` | Reflected as dedicated dialect type. |
+| `MONETARY` | `sqlalchemy_cubrid.MONETARY` | `float` | Currency-aware server type; represented as numeric value in Python. |
+| `DATE` | `sqlalchemy.Date` | `datetime.date` | Calendar date only. |
+| `TIME` | `sqlalchemy.Time` / `sqlalchemy_cubrid.TIME` | `datetime.time` | Time of day only. |
+| `DATETIME` | `sqlalchemy.DateTime` / `sqlalchemy_cubrid.DATETIME` | `datetime.datetime` | Date + time in one value. |
+| `TIMESTAMP` | `sqlalchemy.TIMESTAMP` / `sqlalchemy_cubrid.TIMESTAMP` | `datetime.datetime` | CUBRID timestamp semantics may auto-update depending on schema defaults. |
+| `BIT(n)` | `sqlalchemy_cubrid.BIT(length=n, varying=False)` | `bytes` / `str` | Representation may vary by DBAPI driver. |
+| `BIT VARYING(n)` | `sqlalchemy_cubrid.BIT(length=n, varying=True)` | `bytes` / `str` | Variable-length bit string. |
+| `CHAR(n)` | `sqlalchemy_cubrid.CHAR` | `str` | Fixed-length character data. |
+| `VARCHAR(n)` | `sqlalchemy_cubrid.VARCHAR` / `sqlalchemy.String` | `str` | Variable-length string. |
+| `NCHAR(n)` | `sqlalchemy_cubrid.NCHAR` | `str` | National character set type. |
+| `CHAR VARYING(n)` | `sqlalchemy_cubrid.NVARCHAR` | `str` | Reflected to NVARCHAR by this dialect. |
+| `STRING` | `sqlalchemy_cubrid.STRING` / `sqlalchemy.Text` | `str` | Equivalent to very large `VARCHAR`. |
+| `CLOB` | `sqlalchemy_cubrid.CLOB` / `sqlalchemy.Text` | `str` | Character LOB; large text payloads. |
+| `BLOB` | `sqlalchemy_cubrid.BLOB` / `sqlalchemy.LargeBinary` | `bytes` | Binary LOB storage. |
+| `SET(...)` | `sqlalchemy_cubrid.SET` | Driver-dependent collection payload | CUBRID-specific collection; unique unordered members. |
+| `MULTISET(...)` | `sqlalchemy_cubrid.MULTISET` | Driver-dependent collection payload | CUBRID-specific collection; duplicates allowed. |
+| `SEQUENCE(...)` | `sqlalchemy_cubrid.SEQUENCE` | Driver-dependent collection payload | CUBRID-specific collection; ordered with duplicates. |
+| `OBJECT` | `sqlalchemy_cubrid.OBJECT` | Driver-dependent object reference | OID reference type; database-specific. |
+| `BOOLEAN` (emulated) | `sqlalchemy.Boolean` -> `SMALLINT` | `bool` | Stored as `1` / `0`; `supports_native_boolean=False`. |
+
+### Type Resolution Flow
+
+```mermaid
+flowchart LR
+    cubrid[CUBRID SQL type name] --> ischema[Dialect ischema_names lookup]
+    ischema --> satype[SQLAlchemy TypeEngine instance]
+    satype --> bind[DBAPI bind/result processors]
+    bind --> pyval[Python runtime value]
+```
+
+!!! warning "Precision and rounding"
+    Use `NUMERIC`/`DECIMAL` for financial values. `FLOAT`/`DOUBLE` are approximate and can introduce rounding error in aggregates.
+
+!!! warning "Character set and national string columns"
+    `NCHAR`/`NVARCHAR` use national character semantics. Keep application encoding and database collation aligned to avoid unexpected comparisons/sorting.
+
+!!! warning "LOB and collection payload shape can differ by driver"
+    `CUBRIDdb` and `pycubrid` can expose `BLOB`/`CLOB` and collection values differently.
+    Validate payload type (`str`, `bytes`, mapping-like metadata) in integration tests for your chosen driver.
+
+---
+
 *See also: [Feature Support](FEATURE_SUPPORT.md) · [DML Extensions](DML_EXTENSIONS.md) · [Connection Setup](CONNECTION.md)*

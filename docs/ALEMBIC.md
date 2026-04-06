@@ -372,4 +372,29 @@ Because CUBRID auto-commits DDL, some statements already took effect.
 
 ---
 
+## Migration Safety Checklist
+
+!!! warning "DDL is not transactional"
+    CUBRID auto-commits DDL. A failed migration can leave partial schema changes applied.
+    Prefer small revisions with one logical schema change each.
+
+!!! warning "Type changes and rename require batch operations"
+    Direct `alter_column(type_=...)` and `alter_column(new_column_name=...)` are not portable for CUBRID.
+    Use `op.batch_alter_table()` with tested downgrade steps.
+
+!!! tip "Always test upgrade + downgrade on staging"
+    Validate full forward and backward migration chains before production rollout.
+
+!!! tip "Create backups for destructive operations"
+    Back up data before `drop_column`, `drop_table`, or multi-step restructuring migrations.
+
+Recommended pre-deploy sequence:
+
+1. `alembic upgrade head` on a staging copy.
+2. Run smoke tests and critical queries.
+3. `alembic downgrade -1` and `alembic upgrade head` to verify reversibility.
+4. Deploy during a maintenance window for high-impact schema changes.
+
+---
+
 *See also: [Connection Guide](CONNECTION.md) · [Type Mapping](TYPES.md) · [Feature Support](FEATURE_SUPPORT.md)*

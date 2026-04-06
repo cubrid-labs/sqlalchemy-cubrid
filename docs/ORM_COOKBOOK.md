@@ -508,5 +508,60 @@ uppercase). Quoted identifiers preserve case but are rarely needed.
 
 ---
 
+## Additional Practical Recipes
+
+### Idempotent user upsert with unique email
+
+```python
+from sqlalchemy import func
+from sqlalchemy_cubrid import insert
+
+with Session(engine) as session:
+    stmt = insert(User.__table__).values(id=1, name="Alice", email="alice@example.com")
+    stmt = stmt.on_duplicate_key_update(
+        name=stmt.inserted.name,
+        updated_at=func.current_datetime(),
+    )
+    session.execute(stmt)
+    session.commit()
+```
+
+### Bulk create with explicit flush windows
+
+```python
+BATCH = 500
+
+with Session(engine) as session:
+    for i in range(0, len(payload_rows), BATCH):
+        chunk = payload_rows[i : i + BATCH]
+        session.add_all(User(name=row["name"], email=row["email"]) for row in chunk)
+        session.flush()  # keep memory bounded
+    session.commit()
+```
+
+### Pessimistic lock for balance transfer
+
+```python
+from sqlalchemy import select
+
+with Session(engine) as session:
+    account = session.scalars(
+        select(Account).where(Account.id == 10).with_for_update()
+    ).one()
+    account.balance -= 100
+    session.commit()
+```
+
+!!! warning "Avoid `RETURNING`-based ORM patterns"
+    CUBRID does not support `RETURNING`. Prefer `flush()` + mapped identity values.
+
+!!! warning "Use CUBRID extension APIs for upsert"
+    For ODKU behavior, use `sqlalchemy_cubrid.insert()` rather than SQLAlchemy's generic `insert()`.
+
+!!! tip "Prefer `selectinload` for large collections"
+    `joinedload` can multiply rows significantly on one-to-many joins.
+
+---
+
 *See also: [Feature Support Matrix](FEATURE_SUPPORT.md) for a complete comparison
 with MySQL, PostgreSQL, and SQLite.*

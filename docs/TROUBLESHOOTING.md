@@ -1182,6 +1182,46 @@ CUBRID_VERSION=10.2 docker compose up -d
 
 ## Debugging Techniques
 
+## Troubleshooting Decision Flow
+
+```mermaid
+flowchart TD
+    start[Issue observed] --> kind{Primary symptom}
+    kind -->|Import / Module error| install[Check driver install]
+    kind -->|Connection failure| conn[Validate URL, host, port, credentials]
+    kind -->|SQL compile/runtime error| sql[Inspect generated SQL and unsupported feature]
+    kind -->|Migration failure| mig[Check Alembic limitations and DDL auto-commit]
+    kind -->|Performance issue| perf[Check pool settings, indexes, statement patterns]
+
+    install --> i1{CUBRIDdb or pycubrid?}
+    i1 -->|CUBRIDdb| i2[Install CUBRID-Python and CCI dependencies]
+    i1 -->|pycubrid| i3[Install pycubrid and use cubrid+pycubrid URL]
+
+    conn --> c1{Broker reachable?}
+    c1 -->|No| c2[Start broker / docker service and verify port 33000]
+    c1 -->|Yes| c3[Enable pool_pre_ping and review SESSION_TIMEOUT]
+
+    sql --> s1{Using unsupported feature?}
+    s1 -->|RETURNING / JSON / ARRAY| s2[Refactor using supported CUBRID patterns]
+    s1 -->|No| s3[Enable SQLAlchemy echo and inspect raw SQL]
+
+    mig --> m1[Split migration into atomic DDL steps]
+    perf --> p1[Profile query plan, batch size, lock scope]
+```
+
+!!! tip "Start with reproducibility"
+    Reduce the failing case to a minimal script with one engine, one table, and one query.
+    This quickly identifies whether the issue is driver, dialect, or application logic.
+
+!!! warning "Distinguish compilation errors from runtime errors"
+    - Compilation errors happen before SQL is sent.
+    - Runtime errors come from CUBRID or the driver.
+    They need different debugging paths.
+
+!!! tip "Capture environment details in issue reports"
+    Include dialect version, SQLAlchemy version, driver (`CUBRIDdb` or `pycubrid`),
+    CUBRID server version, and the exact connection URL format used.
+
 ### Enable SQL Logging
 
 ```python
