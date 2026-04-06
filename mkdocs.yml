@@ -1,0 +1,80 @@
+site_name: sqlalchemy-cubrid
+site_description: SQLAlchemy 2.0 dialect for the CUBRID database
+site_author: cubrid-labs
+site_url: https://cubrid-labs.github.io/sqlalchemy-cubrid/
+repo_url: https://github.com/cubrid-labs/sqlalchemy-cubrid
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+    - search.highlight
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Connection Guide: CONNECTION.md
+      - ORM Cookbook: ORM_COOKBOOK.md
+  - User Guide:
+      - Type System: TYPES.md
+      - DML Extensions: DML_EXTENSIONS.md
+      - Isolation Levels: ISOLATION_LEVELS.md
+      - Alembic Migrations: ALEMBIC.md
+      - Architecture: ARCHITECTURE.md
+  - Reference:
+      - Feature Support: FEATURE_SUPPORT.md
+      - Driver Compatibility: DRIVER_COMPAT.md
+      - Support Matrix: SUPPORT_MATRIX.md
+  - Development:
+      - Development Guide: DEVELOPMENT.md
+      - Performance: PERFORMANCE.md
+  - Troubleshooting: TROUBLESHOOTING.md
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - tables
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_div_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - pymdownx.inlinehilite
+
+plugins:
+  - search
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/cubrid-labs/sqlalchemy-cubrid
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/sqlalchemy-cubrid/
+
+extra_javascript:
+  - https://unpkg.com/mermaid@11/dist/mermaid.min.js
+  - javascripts/mermaid-init.js
