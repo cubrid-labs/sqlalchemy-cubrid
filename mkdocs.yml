@@ -30,22 +30,26 @@ theme:
 nav:
   - Home: index.md
   - Getting Started:
+      - Quick Start: QUICKSTART.md
       - Connection Guide: CONNECTION.md
-      - ORM Cookbook: ORM_COOKBOOK.md
+      - Driver Compatibility: DRIVER_COMPAT.md
   - User Guide:
-      - Type System: TYPES.md
+      - ORM Cookbook: ORM_COOKBOOK.md
       - DML Extensions: DML_EXTENSIONS.md
+      - Type Mapping: TYPES.md
       - Isolation Levels: ISOLATION_LEVELS.md
       - Alembic Migrations: ALEMBIC.md
-      - Architecture: ARCHITECTURE.md
   - Reference:
       - Feature Support: FEATURE_SUPPORT.md
-      - Driver Compatibility: DRIVER_COMPAT.md
       - Support Matrix: SUPPORT_MATRIX.md
+      - Architecture: ARCHITECTURE.md
+  - Operations:
+      - Performance: PERFORMANCE.md
+      - Troubleshooting: TROUBLESHOOTING.md
   - Development:
       - Development Guide: DEVELOPMENT.md
-      - Performance: PERFORMANCE.md
-  - Troubleshooting: TROUBLESHOOTING.md
+  - Changelog: https://github.com/cubrid-labs/sqlalchemy-cubrid/blob/main/CHANGELOG.md
+  - Contributing: https://github.com/cubrid-labs/sqlalchemy-cubrid/blob/main/CONTRIBUTING.md
 
 markdown_extensions:
   - admonition
@@ -57,7 +61,6 @@ markdown_extensions:
       custom_fences:
         - name: mermaid
           class: mermaid
-          format: !!python/name:pymdownx.superfences.fence_div_format
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.tabbed:

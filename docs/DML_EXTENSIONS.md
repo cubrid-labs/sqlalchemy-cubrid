@@ -442,4 +442,196 @@ with engine.connect() as conn:
 
 ---
 
+## Cookbook: Production DML Patterns
+
+### 1) Atomic counters with `ON DUPLICATE KEY UPDATE`
+
+```python
+from sqlalchemy import func
+from sqlalchemy_cubrid import insert
+
+stmt = (
+    insert(daily_metrics)
+    .values(metric_date="2026-04-06", page_views=1)
+    .on_duplicate_key_update(
+        page_views=daily_metrics.c.page_views + 1,
+        updated_at=func.current_datetime(),
+    )
+)
+```
+
+Use this pattern for idempotent event aggregation without read-before-write.
+
+### 2) Preserve column update order
+
+`on_duplicate_key_update()` accepts list-of-tuples so SQL column ordering is deterministic:
+
+```python
+stmt = (
+    insert(accounts)
+    .values(id=100, status="active", updated_by="system")
+    .on_duplicate_key_update([
+        ("status", "active"),
+        ("updated_by", "system"),
+    ])
+)
+```
+
+This mirrors the internal `_parameter_ordering` behavior in `OnDuplicateClause`.
+
+### 3) Idempotent sync with incoming values
+
+```python
+stmt = insert(users).values(id=1, name="Alice", email="alice@example.com")
+stmt = stmt.on_duplicate_key_update(
+    name=stmt.inserted.name,
+    email=stmt.inserted.email,
+)
+```
+
+### 4) Batch ingest from staging table with `MERGE`
+
+```python
+from sqlalchemy import select
+from sqlalchemy_cubrid import merge
+
+source = (
+    select(staging_users.c.user_id, staging_users.c.name, staging_users.c.email)
+    .where(staging_users.c.is_valid == 1)
+    .subquery()
+)
+
+stmt = (
+    merge(users)
+    .using(source)
+    .on(users.c.id == source.c.user_id)
+    .when_matched_then_update(
+        {
+            "name": source.c.name,
+            "email": source.c.email,
+        },
+        where=source.c.email.is_not(None),
+    )
+    .when_not_matched_then_insert(
+        {
+            "id": source.c.user_id,
+            "name": source.c.name,
+            "email": source.c.email,
+        }
+    )
+)
+```
+
+### 5) Soft-delete invalid rows during `MERGE`
+
+```python
+stmt = (
+    merge(products)
+    .using(source_products)
+    .on(products.c.sku == source_products.c.sku)
+    .when_matched_then_update(
+        {"name": source_products.c.name},
+        delete_where=source_products.c.discontinued == 1,
+    )
+    .when_not_matched_then_insert(
+        {
+            "sku": source_products.c.sku,
+            "name": source_products.c.name,
+        }
+    )
+)
+```
+
+### 6) Safe `REPLACE INTO` for immutable snapshots
+
+```python
+from sqlalchemy_cubrid import replace
+
+stmt = replace(user_daily_snapshot).values(
+    user_id=42,
+    snapshot_date="2026-04-06",
+    payload="{...}",
+)
+```
+
+Use `REPLACE` for full-row replacement workloads where delete+insert semantics are acceptable.
+
+---
+
+## DML Execution Flow
+
+### `ON DUPLICATE KEY UPDATE`
+
+```mermaid
+sequenceDiagram
+    participant App as Application
+    participant SA as SQLAlchemy Core/ORM
+    participant Dialect as sqlalchemy-cubrid
+    participant DB as CUBRID
+
+    App->>SA: insert(...).on_duplicate_key_update(...)
+    SA->>Dialect: Compile Insert + OnDuplicateClause
+    Dialect->>DB: INSERT ... ON DUPLICATE KEY UPDATE ...
+    DB-->>Dialect: Inserted or updated rowcount
+    Dialect-->>SA: Cursor result
+    SA-->>App: ResultProxy / ORM state sync
+```
+
+### `MERGE`
+
+```mermaid
+sequenceDiagram
+    participant App as Application
+    participant SA as SQLAlchemy
+    participant Merge as Merge builder
+    participant DB as CUBRID
+
+    App->>Merge: merge(target).using(source).on(cond)
+    App->>Merge: when_matched_then_update(...)
+    App->>Merge: when_not_matched_then_insert(...)
+    Merge->>SA: Render MERGE statement
+    SA->>DB: MERGE INTO ...
+    DB-->>SA: Matched/inserted row effects
+    SA-->>App: Execution result
+```
+
+---
+
+## Gotchas and Limitations
+
+!!! warning "Do not pass empty update mappings"
+    `on_duplicate_key_update({})` raises an error.
+    Pass a non-empty dict, `ColumnCollection`, or list of `(key, value)` tuples.
+
+!!! warning "Do not mix positional and keyword arguments"
+    `on_duplicate_key_update()` enforces a single input style:
+    either positional (`dict`/`list[tuple]`) or keyword args.
+
+!!! warning "MERGE requires `using()` and `on()`"
+    Missing `using()` or `on()` generates invalid SQL. Always provide both before execution.
+
+!!! warning "`when_matched_then_delete()` requires prior update clause"
+    In this dialect implementation, `when_matched_then_delete()` must be called after `when_matched_then_update()`.
+
+!!! tip "Prefer ODKU for high-frequency single-row upserts"
+    `ON DUPLICATE KEY UPDATE` is usually simpler and lower overhead than `MERGE` for key-based singleton updates.
+
+---
+
+## Performance Notes
+
+| Pattern | Best Fit | Relative Cost | Notes |
+|---|---|---|---|
+| `INSERT ... ON DUPLICATE KEY UPDATE` | Single-row or small upserts on unique key | Low | Efficient conflict handling in one statement. |
+| `MERGE` | Set-based sync from source table/subquery | Medium | Most expressive; can update/insert/delete with predicates. |
+| `REPLACE INTO` | Full-row replacement semantics | Medium-High | Delete+insert behavior can trigger more index and FK work. |
+
+Practical guidance:
+
+1. Benchmark with representative cardinality and index layout.
+2. Keep matched predicates sargable (`ON` keys indexed).
+3. Use tuple ordering in ODKU when deterministic SQL text benefits statement cache behavior.
+
+---
+
 *See also: [Feature Support](FEATURE_SUPPORT.md) · [Type Mapping](TYPES.md) · [Connection Setup](CONNECTION.md)*
