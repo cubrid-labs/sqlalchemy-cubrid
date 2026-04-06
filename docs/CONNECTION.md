@@ -397,4 +397,30 @@ engine = create_engine(
 
 ---
 
+## Connection URL Parsing Flow
+
+```mermaid
+flowchart TD
+    input[SQLAlchemy URL string] --> parse[SQLAlchemy URL parser]
+    parse --> check{Driver name}
+    check -->|cubrid or cubrid+cubrid| cext[Build CUBRID native DSN]
+    check -->|cubrid+pycubrid| pykw[Build pycubrid kwargs]
+    cext --> connect1[CUBRIDdb.connect(url, user, password)]
+    pykw --> connect2[pycubrid.connect(host, port, database, user, password)]
+    connect1 --> session[Dialect on_connect sets autocommit=False]
+    connect2 --> session
+```
+
+!!! warning "Use the correct dialect prefix"
+    `pycubrid://...` is not a valid SQLAlchemy URL scheme.
+    Always use `cubrid+pycubrid://...`.
+
+!!! warning "Do not pass broker port as query string"
+    Use `...@host:33000/dbname`, not `...?port=33000`.
+
+!!! tip "Prefer `pool_pre_ping=True` in production"
+    This prevents stale connection failures after broker restarts or idle timeout expiration.
+
+---
+
 *See also: [Isolation Levels](ISOLATION_LEVELS.md) · [Type Mapping](TYPES.md) · [Feature Support](FEATURE_SUPPORT.md)*

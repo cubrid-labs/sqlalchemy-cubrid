@@ -226,4 +226,31 @@ When a connection is returned to the pool, the dialect resets isolation to level
 
 ---
 
+## Isolation Behavior Diagram
+
+```mermaid
+flowchart LR
+    l1[Level 1\nRC Schema + RU Instances] --> l2[Level 2\nRC Schema + RC Instances]
+    l2 --> l3[Level 3\nRR Schema + RU Instances]
+    l3 --> l4[Level 4\nRR Schema + RC Instances\nDefault]
+    l4 --> l5[Level 5\nRR Schema + RR Instances]
+    l5 --> l6[Level 6\nSerializable]
+
+    dirty[Dirty read risk] -. highest .-> l1
+    dirty -. reduced .-> l3
+    dirty -. blocked .-> l2
+    dirty -. blocked .-> l4
+    dirty -. blocked .-> l5
+    dirty -. blocked .-> l6
+```
+
+!!! warning "Isolation level changes require COMMIT"
+    CUBRID applies `SET TRANSACTION ISOLATION LEVEL` with a commit boundary.
+    Plan transaction scopes accordingly when switching levels at runtime.
+
+!!! tip "Default level 4 is a balanced baseline"
+    Start with `READ COMMITTED` (level 4), then move to level 5 or 6 only for correctness-critical paths.
+
+---
+
 *See also: [Connection Setup](CONNECTION.md) · [Feature Support](FEATURE_SUPPORT.md)*
