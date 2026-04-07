@@ -1,0 +1,5820 @@
+# sqlalchemy-cubrid
+
+SQLAlchemy 2.0 dialect for CUBRID, built for production-ready Core and ORM workloads.
+
+## Key features
+
+- Native SQLAlchemy 2.0 dialect support with statement caching
+- CUBRID-specific DML support including `ON DUPLICATE KEY UPDATE`, `MERGE`, and `REPLACE INTO`
+- Complete type system coverage and schema reflection support
+- Built-in Alembic migration integration for CUBRID
+- Dual driver support: C-extension (`cubrid://`) and pure Python (`cubrid+pycubrid://`)
+
+## Quick install
+
+```bash
+pip install sqlalchemy-cubrid
+```
+
+Pure Python driver option:
+
+```bash
+pip install "sqlalchemy-cubrid[pycubrid]"
+```
+
+## Minimal example
+
+```python
+from sqlalchemy import create_engine, text
+engine = create_engine("cubrid://dba:password@localhost:33000/demodb")
+with engine.connect() as conn:
+    result = conn.execute(text("SELECT 1"))
+    row = result.fetchone()
+    print(row[0])
+```
+
+## Documentation sections
+
+- [Getting Started](CONNECTION.md)
+- [User Guide](TYPES.md)
+- [Reference](FEATURE_SUPPORT.md)
+
+## Project links
+
+- [GitHub](https://github.com/cubrid-labs/sqlalchemy-cubrid)
+- [PyPI](https://pypi.org/project/sqlalchemy-cubrid/)
+- [Changelog](https://github.com/cubrid-labs/sqlalchemy-cubrid/blob/main/CHANGELOG.md)
+- [Contributing](https://github.com/cubrid-labs/sqlalchemy-cubrid/blob/main/CONTRIBUTING.md)
+
+---
+
+# Quick Start
+
+Get a working SQLAlchemy + CUBRID application running in minutes.
+
+---
+
+## Prerequisites
+
+Before you start, make sure the following are available:
+
+- CUBRID server (running and reachable)
+- Python 3.9+
+- `pycubrid` driver installed
+
+```bash
+pip install pycubrid
+```
+
+---
+
+## Install the Dialect
+
+```bash
+pip install sqlalchemy-cubrid
+```
+
+---
+
+## Connection URL Format
+
+Use the pycubrid dialect URL format:
+
+```text
+cubrid+pycubrid://user:password@host:port/database
+```
+
+Example:
+
+```python
+from sqlalchemy import create_engine
+
+engine = create_engine("cubrid+pycubrid://dba@localhost:33000/testdb")
+```
+
+---
+
+## Dialect Stack
+
+```mermaid
+flowchart TD
+    app[Application Code] --> sa[SQLAlchemy 2.x]
+    sa --> dialect[sqlalchemy-cubrid]
+    dialect --> driver[pycubrid]
+    driver --> db[(CUBRID Server)]
+```
+
+---
+
+## SQLAlchemy Core Example
+
+```python
+from sqlalchemy import (
+    Column,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    create_engine,
+    insert,
+    select,
+)
+
+engine = create_engine("cubrid+pycubrid://dba@localhost:33000/testdb", echo=True)
+metadata = MetaData()
+
+users = Table(
+    "users",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("name", String(100), nullable=False),
+)
+
+# Create table
+metadata.create_all(engine)
+
+# Insert row
+with engine.begin() as conn:
+    conn.execute(insert(users).values(name="Alice"))
+
+# Select rows
+with engine.connect() as conn:
+    rows = conn.execute(select(users.c.id, users.c.name).order_by(users.c.id)).all()
+    print(rows)
+```
+
+---
+
+## SQLAlchemy ORM Example
+
+```python
+from __future__ import annotations
+
+from sqlalchemy import String, create_engine, select
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class User(Base):
+    __tablename__ = "users_orm"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+
+
+engine = create_engine("cubrid+pycubrid://dba@localhost:33000/testdb", echo=True)
+Base.metadata.create_all(engine)
+
+with Session(engine) as session:
+    # Create
+    session.add(User(name="Bob"))
+    session.commit()
+
+    # Read
+    bob = session.scalars(select(User).where(User.name == "Bob")).one()
+
+    # Update
+    bob.name = "Bob Updated"
+    session.commit()
+
+    # Delete
+    session.delete(bob)
+    session.commit()
+```
+
+---
+
+## Common Gotchas
+
+!!! warning "No RETURNING support"
+    CUBRID does not support `INSERT ... RETURNING` or `UPDATE ... RETURNING`.
+    SQLAlchemy handles primary key retrieval via dialect-specific mechanisms.
+
+!!! warning "No native BOOLEAN type"
+    Boolean values are stored as `SMALLINT` (`1`/`0`).
+    Use SQLAlchemy `Boolean` normally; conversion is handled by the dialect.
+
+!!! tip "Start with default user and port"
+    The common development defaults are:
+    - user: `dba`
+    - port: `33000`
+
+---
+
+## Next Steps
+
+- [Connection Guide](CONNECTION.md)
+- [ORM Cookbook](ORM_COOKBOOK.md)
+- [Type Mapping](TYPES.md)
+
+---
+
+# Connection & Driver Setup
+
+This guide covers how to install the CUBRID Python driver, configure SQLAlchemy connection strings, and understand the connection lifecycle.
+
+---
+
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [Installing the CUBRID Python Driver](#installing-the-cubrid-python-driver)
+- [Connection String Format](#connection-string-format)
+- [Entry Points](#entry-points)
+- [How the Dialect Translates URLs](#how-the-dialect-translates-urls)
+- [Connection Options](#connection-options)
+- [Autocommit Behavior](#autocommit-behavior)
+- [Server Version Detection](#server-version-detection)
+- [Troubleshooting](#troubleshooting)
+
+---
+
+## Prerequisites
+
+| Requirement        | Version         |
+|--------------------|-----------------|
+| Python             | 3.10+           |
+| SQLAlchemy         | 2.0 – 2.1       |
+| CUBRID Server      | 10.2 – 11.4     |
+| CUBRID Python Driver | Latest          |
+
+---
+
+## Installing the CUBRID Python Driver
+
+The dialect requires the [CUBRID-Python](https://github.com/CUBRID/cubrid-python) driver:
+
+```bash
+pip install CUBRID-Python
+```
+
+Or install both the dialect and driver together:
+
+```bash
+pip install sqlalchemy-cubrid
+pip install CUBRID-Python
+```
+
+> **Note**: `CUBRID-Python` is a C-extension driver. On some platforms you may need
+> the CUBRID CCI library installed. See the
+> [CUBRID Python driver documentation](https://www.cubrid.org/manual/en/11.0/api/python.html)
+> for platform-specific instructions.
+
+### Alternative: Pure Python Driver (pycubrid)
+
+If you prefer a pure Python driver with no C build dependencies:
+
+```bash
+pip install "sqlalchemy-cubrid[pycubrid]"
+```
+
+Or install separately:
+
+```bash
+pip install sqlalchemy-cubrid pycubrid
+```
+
+Then use the `cubrid+pycubrid://` URL scheme:
+
+```python
+engine = create_engine("cubrid+pycubrid://dba@localhost:33000/testdb")
+```
+
+> **Tip**: `pycubrid` is a pure Python implementation — it works anywhere Python runs,
+> with no native library dependencies. See [pycubrid on GitHub](https://github.com/sqlalchemy-cubrid/pycubrid).
+---
+
+## Connection String Format
+
+SQLAlchemy uses standard URL-style connection strings:
+
+```
+cubrid://user:password@host:port/database
+```
+
+### Examples
+
+```python
+from sqlalchemy import create_engine
+
+# Basic connection
+engine = create_engine("cubrid://dba:password@localhost:33000/demodb")
+
+# Without password (CUBRID allows passwordless dba access by default)
+engine = create_engine("cubrid://dba@localhost:33000/testdb")
+
+# With explicit driver name (C-extension)
+engine = create_engine("cubrid+cubrid://dba:password@localhost:33000/demodb")
+
+# Using pycubrid pure Python driver
+engine = create_engine("cubrid+pycubrid://dba:password@localhost:33000/demodb")
+```
+
+### URL Components
+
+| Component  | Default     | Description                            |
+|------------|-------------|----------------------------------------|
+| `user`     | *(required)* | Database username (typically `dba`)   |
+| `password` | *(empty)*   | Database password                      |
+| `host`     | `localhost` | CUBRID server hostname or IP           |
+| `port`     | `33000`     | CUBRID broker port                     |
+| `database` | *(required)* | Database name                         |
+
+---
+
+## Entry Points
+
+The dialect registers three SQLAlchemy entry points:
+
+| URL Scheme           | Driver      | Description                          |
+|----------------------|-------------|--------------------------------------|
+| `cubrid://`          | CUBRIDdb    | Default C-extension driver           |
+| `cubrid+cubrid://`   | CUBRIDdb    | Explicit C-extension driver          |
+| `cubrid+pycubrid://` | pycubrid    | Pure Python driver (no C build)      |
+
+Use `cubrid://` for the C-extension driver (best performance), or `cubrid+pycubrid://` for the pure Python driver (easiest installation, no native build step).
+---
+
+## How the Dialect Translates URLs
+
+Internally, the dialect converts SQLAlchemy URLs to the CUBRID native connection format:
+
+```
+SQLAlchemy URL:  cubrid://dba:password@myhost:33000/mydb
+                        ↓
+CUBRID native:   CUBRID:myhost:33000:mydb:::
+```
+
+The `create_connect_args()` method returns `(connect_url, username, password)` as positional arguments to the CUBRID Python driver's `connect()` function.
+
+### Translation Details
+
+```python
+# CUBRIDdb (C-extension driver):
+connect_url = f"CUBRID:{host}:{port}:{database}:::"
+args = (connect_url, username, password)
+# → CUBRIDdb.connect("CUBRID:myhost:33000:mydb:::", "dba", "password")
+```
+
+The trailing `:::` in the CUBRID connection string represents three empty optional parameters (reserved for future use by CUBRID).
+
+### pycubrid Translation
+
+The pycubrid dialect passes keyword arguments directly:
+
+```python
+# pycubrid (pure Python driver):
+kwargs = {"host": host, "port": port, "database": database, "user": user, "password": password}
+# → pycubrid.connect(host="myhost", port=33000, database="mydb", user="dba", password="password")
+```
+
+---
+
+## Connection Options
+
+### Engine-Level Options
+
+```python
+engine = create_engine(
+    "cubrid://dba@localhost:33000/testdb",
+
+    # Set default isolation level for all connections
+    isolation_level="REPEATABLE READ",
+
+    # SQLAlchemy 2.0 connection pool settings
+    pool_size=5,
+    max_overflow=10,
+    pool_timeout=30,
+
+    # Enable SQL logging
+    echo=True,
+)
+```
+
+### Per-Connection Isolation Level
+
+```python
+with engine.connect().execution_options(
+    isolation_level="SERIALIZABLE"
+) as conn:
+    # This connection uses SERIALIZABLE isolation
+    result = conn.execute(text("SELECT * FROM accounts"))
+```
+
+See [Isolation Levels](ISOLATION_LEVELS.md) for all supported levels.
+
+---
+
+## Autocommit Behavior
+
+### Driver Default vs. Dialect Override
+
+Both CUBRID Python drivers default to `autocommit=True`. The dialect overrides this on every new connection so that SQLAlchemy can manage transactions properly. CUBRIDdb uses `conn.set_autocommit(False)`; pycubrid uses the property setter `conn.autocommit = False`.
+
+### DDL Autocommit Detection
+
+CUBRID implicitly commits DDL statements. The dialect detects DDL patterns and enables autocommit for:
+
+- `CREATE`, `ALTER`, `DROP`
+- `GRANT`, `REVOKE`
+- `TRUNCATE`
+- `MERGE`
+
+This is handled by the `CubridExecutionContext.should_autocommit_text()` method using a regex pattern.
+
+---
+
+## Server Version Detection
+
+The dialect queries the server version on initialization:
+
+```sql
+SELECT VERSION()
+```
+
+The result (e.g., `11.2.0.0374`) is parsed into a tuple `(11, 2, 0, 374)` for internal version checks.
+
+---
+
+## Troubleshooting
+
+### Common Connection Errors
+
+#### `ImportError: No module named 'CUBRIDdb'`
+
+The CUBRID Python driver is not installed:
+
+```bash
+pip install CUBRID-Python
+```
+
+#### `Connection refused` on port 33000
+
+1. Verify the CUBRID broker is running:
+   ```bash
+   cubrid broker status
+   ```
+
+2. Check the broker port in `cubrid_broker.conf` — default is `33000`.
+
+3. If using Docker:
+   ```bash
+   docker compose up -d
+   docker compose logs cubrid
+   ```
+
+#### `Authentication failed`
+
+CUBRID's default `dba` user has no password. If you set one, ensure it matches your connection string:
+
+```python
+# If dba has no password
+engine = create_engine("cubrid://dba@localhost:33000/testdb")
+
+# If dba has a password
+engine = create_engine("cubrid://dba:mypassword@localhost:33000/testdb")
+```
+
+### Docker Quick Start
+
+For local development, use the provided `docker-compose.yml`:
+
+```bash
+# Start CUBRID 11.2 (default)
+docker compose up -d
+
+# Start a specific version
+CUBRID_VERSION=11.4 docker compose up -d
+
+# Verify it's running
+docker compose ps
+
+# Connect
+python -c "
+from sqlalchemy import create_engine, text
+engine = create_engine('cubrid://dba@localhost:33000/testdb')
+with engine.connect() as conn:
+    print(conn.execute(text('SELECT VERSION()')).scalar())
+"
+```
+
+---
+
+## Connection Pool Tuning
+
+SQLAlchemy manages a connection pool by default. Understanding how CUBRID interacts with the pool is important for production deployments.
+
+### Key Pool Parameters
+
+```python
+from sqlalchemy import create_engine
+
+engine = create_engine(
+    "cubrid://dba@localhost:33000/testdb",
+
+    # Pool size: number of persistent connections to keep
+    pool_size=5,           # Default: 5
+
+    # Overflow: additional connections allowed beyond pool_size
+    max_overflow=10,       # Default: 10
+
+    # Timeout: seconds to wait for a connection from the pool
+    pool_timeout=30,       # Default: 30
+
+    # Recycle: seconds before a connection is replaced
+    # Set this LOWER than CUBRID broker's SESSION_TIMEOUT
+    pool_recycle=1800,     # Recommended: 1800 (30 minutes)
+
+    # Pre-ping: test connection liveness before checkout
+    pool_pre_ping=True,    # Recommended: True for production
+)
+```
+
+### `pool_pre_ping` (Recommended)
+
+When `pool_pre_ping=True`, SQLAlchemy calls `do_ping()` on each connection before handing it to your application. The CUBRIDdb dialect uses the native `connection.ping()` method from the CUBRID Python driver. The pycubrid dialect executes `SELECT 1` since pycubrid has no native `ping()` method. Both approaches prevent "stale connection" errors.
+
+This prevents "stale connection" errors that occur when:
+- The CUBRID broker restarts
+- Network interruptions occur
+- The broker's `SESSION_TIMEOUT` expires
+
+```python
+# Production-recommended configuration
+engine = create_engine(
+    "cubrid://dba@localhost:33000/mydb",
+    pool_pre_ping=True,
+    pool_recycle=1800,
+)
+```
+
+### `pool_recycle` and CUBRID Broker Timeout
+
+CUBRID's broker has a `SESSION_TIMEOUT` setting (default varies by version, typically 300 seconds). If a pooled connection sits idle longer than this timeout, the broker will close it server-side.
+
+**Always set `pool_recycle` lower than `SESSION_TIMEOUT`** to avoid stale connections:
+
+```python
+# If CUBRID broker SESSION_TIMEOUT is 300 (5 minutes)
+engine = create_engine(
+    "cubrid://dba@localhost:33000/mydb",
+    pool_recycle=240,  # Recycle before broker timeout
+)
+```
+
+### Disconnect Detection
+
+The dialect implements `is_disconnect()` which detects connection failures by:
+
+1. **Message matching** — checks error messages for known disconnect patterns (e.g., "connection is closed", "broker is not available", "connection reset")
+2. **Error code matching** — checks for CUBRID CCI error codes like `CAS_ER_COMMUNICATION` (-21003)
+
+When a disconnect is detected, SQLAlchemy automatically invalidates the connection and creates a new one from the pool.
+
+### Error Code Mapping
+
+CUBRID driver exceptions are mapped to appropriate SQLAlchemy exception types. The driver exposes a limited exception hierarchy:
+
+| CUBRID Driver Exception | SA Exception Mapping |
+|---|---|
+| `Error` (base) | `DBAPIError` |
+| `InterfaceError` | `InterfaceError` |
+| `DatabaseError` | `DatabaseError` |
+| `NotSupportedError` | `NotSupportedError` |
+
+> **Note**: CUBRIDdb does not provide `OperationalError`, `ProgrammingError`, `InternalError`, or `DataError`. All database-level errors are raised as `DatabaseError`.
+
+### Pool Configuration Recommendations
+
+| Scenario | `pool_size` | `pool_recycle` | `pool_pre_ping` |
+|---|---|---|---|
+| Development | 2 | -1 (disabled) | False |
+| Web application | 5–10 | 1800 | True |
+| High-concurrency | 10–20 | 900 | True |
+| Background workers | 2–5 | 600 | True |
+
+### NullPool for Short-Lived Scripts
+
+For scripts or one-off tasks, disable pooling entirely:
+
+```python
+from sqlalchemy.pool import NullPool
+
+engine = create_engine(
+    "cubrid://dba@localhost:33000/testdb",
+    poolclass=NullPool,
+)
+```
+
+---
+
+## Connection URL Parsing Flow
+
+```mermaid
+flowchart TD
+    input[SQLAlchemy URL string] --> parse[SQLAlchemy URL parser]
+    parse --> check{Driver name}
+    check -->|cubrid or cubrid+cubrid| cext[Build CUBRID native DSN]
+    check -->|cubrid+pycubrid| pykw[Build pycubrid kwargs]
+    cext --> connect1[CUBRIDdb.connect(url, user, password)]
+    pykw --> connect2[pycubrid.connect(host, port, database, user, password)]
+    connect1 --> session[Dialect on_connect sets autocommit=False]
+    connect2 --> session
+```
+
+!!! warning "Use the correct dialect prefix"
+    `pycubrid://...` is not a valid SQLAlchemy URL scheme.
+    Always use `cubrid+pycubrid://...`.
+
+!!! warning "Do not pass broker port as query string"
+    Use `...@host:33000/dbname`, not `...?port=33000`.
+
+!!! tip "Prefer `pool_pre_ping=True` in production"
+    This prevents stale connection failures after broker restarts or idle timeout expiration.
+
+---
+
+*See also: [Isolation Levels](ISOLATION_LEVELS.md) · [Type Mapping](TYPES.md) · [Feature Support](FEATURE_SUPPORT.md)*
+
+---
+
+# ORM Cookbook
+
+Practical SQLAlchemy 2.0 ORM patterns for CUBRID. This guide covers table definitions,
+relationships, CRUD operations, and CUBRID-specific DML extensions using the modern
+`DeclarativeBase` / `mapped_column` API.
+
+For connection setup, see [CONNECTION.md](CONNECTION.md).
+For type mapping details, see [TYPES.md](TYPES.md).
+For DML extensions reference, see [DML_EXTENSIONS.md](DML_EXTENSIONS.md).
+
+---
+
+## Table of Contents
+
+- [Quick Setup](#quick-setup)
+- [Table Definitions](#table-definitions)
+- [Basic CRUD](#basic-crud)
+- [Relationships](#relationships)
+- [ON DUPLICATE KEY UPDATE](#on-duplicate-key-update)
+- [MERGE Statement](#merge-statement)
+- [REPLACE INTO](#replace-into)
+- [Collection Types](#collection-types)
+- [Working with LOBs](#working-with-lobs)
+- [Eager Loading](#eager-loading)
+- [Hybrid Properties](#hybrid-properties)
+- [CUBRID-Specific Gotchas](#cubrid-specific-gotchas)
+
+---
+
+## Quick Setup
+
+```python
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+
+engine = create_engine("cubrid://dba:password@localhost:33000/demodb")
+```
+
+---
+
+## Table Definitions
+
+Use `DeclarativeBase` and `mapped_column` (SQLAlchemy 2.0 style).
+
+```python
+from __future__ import annotations
+
+from datetime import datetime
+
+from sqlalchemy import ForeignKey, String, func
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+from sqlalchemy_cubrid import CLOB, MONETARY, SET, SMALLINT, STRING
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(100))
+    email: Mapped[str] = mapped_column(String(255), unique=True)
+    bio: Mapped[str | None] = mapped_column(CLOB, default=None)
+    # CUBRID has no native BOOLEAN — use SMALLINT (0/1)
+    is_active: Mapped[int] = mapped_column(SMALLINT, default=1)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.sysdate())
+
+    posts: Mapped[list[Post]] = relationship(back_populates="author")
+
+
+class Post(Base):
+    __tablename__ = "posts"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(200))
+    body: Mapped[str] = mapped_column(STRING)
+    author_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+
+    author: Mapped[User] = relationship(back_populates="posts")
+    tags: Mapped[list[Tag]] = relationship(secondary="post_tags", back_populates="posts")
+```
+
+### Table with CUBRID-Specific Types
+
+```python
+from sqlalchemy import Column, MetaData, Table
+
+from sqlalchemy_cubrid import BIT, BLOB, MONETARY, MULTISET, OBJECT, SEQUENCE, SET
+
+metadata = MetaData()
+
+products = Table(
+    "products",
+    metadata,
+    Column("id", primary_key=True, autoincrement=True),
+    Column("price", MONETARY),
+    Column("colors", SET("red", "green", "blue")),
+    Column("sizes", MULTISET("S", "M", "L", "XL")),
+    Column("image", BLOB),
+    Column("flags", BIT(8)),
+)
+```
+
+---
+
+## Basic CRUD
+
+### Create
+
+```python
+from sqlalchemy.orm import Session
+
+with Session(engine) as session:
+    user = User(name="Alice", email="alice@example.com")
+    session.add(user)
+    session.commit()
+
+    # Access auto-generated ID (CUBRID uses AUTO_INCREMENT)
+    print(user.id)
+```
+
+### Read
+
+```python
+from sqlalchemy import select
+
+with Session(engine) as session:
+    # Single row
+    stmt = select(User).where(User.email == "alice@example.com")
+    user = session.scalars(stmt).one()
+
+    # All rows with filtering
+    stmt = select(User).where(User.is_active == 1).order_by(User.name)
+    users = session.scalars(stmt).all()
+```
+
+### Update
+
+```python
+with Session(engine) as session:
+    user = session.get(User, 1)
+    user.name = "Alice Updated"
+    session.commit()
+```
+
+### Delete
+
+```python
+with Session(engine) as session:
+    user = session.get(User, 1)
+    session.delete(user)
+    session.commit()
+```
+
+---
+
+## Relationships
+
+### One-to-Many
+
+```python
+with Session(engine) as session:
+    user = User(name="Bob", email="bob@example.com")
+    user.posts.append(Post(title="First Post", body="Hello world"))
+    user.posts.append(Post(title="Second Post", body="More content"))
+    session.add(user)
+    session.commit()
+
+    # Query with relationship
+    stmt = select(User).where(User.name == "Bob")
+    bob = session.scalars(stmt).one()
+    for post in bob.posts:
+        print(f"{post.title} by {post.author.name}")
+```
+
+### Many-to-Many
+
+```python
+class Tag(Base):
+    __tablename__ = "tags"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(50), unique=True)
+
+    posts: Mapped[list[Post]] = relationship(secondary="post_tags", back_populates="tags")
+
+
+# Association table
+post_tags = Table(
+    "post_tags",
+    Base.metadata,
+    Column("post_id", ForeignKey("posts.id"), primary_key=True),
+    Column("tag_id", ForeignKey("tags.id"), primary_key=True),
+)
+```
+
+```python
+with Session(engine) as session:
+    tag = Tag(name="python")
+    post = session.get(Post, 1)
+    post.tags.append(tag)
+    session.commit()
+```
+
+> **Note**: CUBRID has no `RETURNING` clause. SQLAlchemy uses `SELECT LAST_INSERT_ID()`
+> to retrieve auto-generated primary keys after INSERT. This works transparently —
+> the ORM handles it via the dialect's `postfetch_lastrowid` mechanism.
+
+---
+
+## ON DUPLICATE KEY UPDATE
+
+Use `sqlalchemy_cubrid.insert()` (not SQLAlchemy's built-in `insert()`).
+
+```python
+from sqlalchemy_cubrid import insert
+
+with Session(engine) as session:
+    stmt = insert(User).values(
+        id=1,
+        name="Alice",
+        email="alice@example.com",
+    ).on_duplicate_key_update(
+        name="Alice Updated",
+        email="alice-new@example.com",
+    )
+    session.execute(stmt)
+    session.commit()
+```
+
+### Referencing Inserted Values
+
+```python
+stmt = insert(User).values(id=1, name="Alice", email="alice@example.com")
+stmt = stmt.on_duplicate_key_update(
+    name=stmt.inserted.name,  # Use the value being inserted
+)
+```
+
+> **Note**: CUBRID does not support the `VALUES()` function in ODKU clauses.
+> Use `stmt.inserted.<column>` or literal values instead.
+
+---
+
+## MERGE Statement
+
+Upsert with full `WHEN MATCHED` / `WHEN NOT MATCHED` control.
+
+```python
+from sqlalchemy import select
+from sqlalchemy_cubrid import merge
+
+with Session(engine) as session:
+    source = select(User).where(User.is_active == 1).subquery()
+
+    stmt = (
+        merge(Post.__table__)
+        .using(source)
+        .on(Post.__table__.c.author_id == source.c.id)
+        .when_matched_then_update({"title": source.c.name})
+        .when_not_matched_then_insert({
+            "title": source.c.name,
+            "body": "Auto-created",
+            "author_id": source.c.id,
+        })
+    )
+    session.execute(stmt)
+    session.commit()
+```
+
+---
+
+## REPLACE INTO
+
+Deletes existing row if primary key conflicts, then inserts. Use with caution —
+it deletes and re-inserts (unlike ODKU which updates in place).
+
+```python
+from sqlalchemy_cubrid import replace
+
+with Session(engine) as session:
+    stmt = replace(User.__table__).values(
+        id=1,
+        name="Alice Replaced",
+        email="alice@example.com",
+    )
+    session.execute(stmt)
+    session.commit()
+```
+
+---
+
+## Collection Types
+
+CUBRID provides `SET`, `MULTISET`, and `SEQUENCE` collection types.
+
+### Defining Collection Columns
+
+```python
+from sqlalchemy import Column, Integer, MetaData, Table
+
+from sqlalchemy_cubrid import MULTISET, SEQUENCE, SET
+
+metadata = MetaData()
+
+inventory = Table(
+    "inventory",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("colors", SET("VARCHAR")),          # Unordered, unique elements
+    Column("sizes", MULTISET("VARCHAR")),      # Unordered, duplicates allowed
+    Column("history", SEQUENCE("VARCHAR")),    # Ordered, duplicates allowed
+)
+```
+
+### DDL Output
+
+```sql
+CREATE TABLE inventory (
+    id INTEGER AUTO_INCREMENT NOT NULL,
+    colors SET(VARCHAR),
+    sizes MULTISET(VARCHAR),
+    history SEQUENCE(VARCHAR),
+    PRIMARY KEY (id)
+)
+```
+
+---
+
+## Working with LOBs
+
+### CLOB (Character Large Object)
+
+```python
+from sqlalchemy_cubrid import CLOB
+
+
+class Article(Base):
+    __tablename__ = "articles"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(200))
+    content: Mapped[str] = mapped_column(CLOB)  # Large text content
+```
+
+### BLOB (Binary Large Object)
+
+```python
+from sqlalchemy_cubrid import BLOB
+
+
+class Attachment(Base):
+    __tablename__ = "attachments"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    filename: Mapped[str] = mapped_column(String(255))
+    data: Mapped[bytes] = mapped_column(BLOB)
+```
+
+```python
+with Session(engine) as session:
+    with open("photo.jpg", "rb") as f:
+        attachment = Attachment(filename="photo.jpg", data=f.read())
+    session.add(attachment)
+    session.commit()
+```
+
+---
+
+## Eager Loading
+
+Avoid N+1 queries with `joinedload` and `selectinload`.
+
+```python
+from sqlalchemy.orm import joinedload, selectinload
+
+with Session(engine) as session:
+    # Joined load — single query with JOIN
+    stmt = select(User).options(joinedload(User.posts)).where(User.id == 1)
+    user = session.scalars(stmt).unique().one()
+
+    # Select-in load — separate SELECT with IN clause (better for collections)
+    stmt = select(User).options(selectinload(User.posts))
+    users = session.scalars(stmt).unique().all()
+
+    # Nested eager loading
+    stmt = (
+        select(User)
+        .options(selectinload(User.posts).selectinload(Post.tags))
+        .where(User.is_active == 1)
+    )
+    users = session.scalars(stmt).unique().all()
+```
+
+---
+
+## Hybrid Properties
+
+Computed properties that work both in Python and SQL.
+
+```python
+from sqlalchemy.ext.hybrid import hybrid_property
+
+
+class Product(Base):
+    __tablename__ = "products_v2"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    price: Mapped[float] = mapped_column()
+    tax_rate: Mapped[float] = mapped_column(default=0.1)
+
+    @hybrid_property
+    def price_with_tax(self) -> float:
+        return self.price * (1 + self.tax_rate)
+
+    @price_with_tax.inplace.expression
+    @classmethod
+    def _price_with_tax_expression(cls):
+        return cls.price * (1 + cls.tax_rate)
+```
+
+```python
+with Session(engine) as session:
+    # Works in Python
+    product = session.get(Product, 1)
+    print(product.price_with_tax)  # Computed in Python
+
+    # Works in SQL queries
+    stmt = select(Product).where(Product.price_with_tax > 100)
+    expensive = session.scalars(stmt).all()
+```
+
+---
+
+## CUBRID-Specific Gotchas
+
+### 1. No RETURNING Clause
+
+CUBRID does not support `INSERT ... RETURNING` or `UPDATE ... RETURNING`.
+The ORM retrieves auto-generated keys via `SELECT LAST_INSERT_ID()` automatically.
+
+**Impact**: Bulk inserts with `insert().returning()` are not available. Use standard
+`session.add_all()` or `insert().values([...])` without returning.
+
+### 2. No Native BOOLEAN
+
+CUBRID maps `Boolean` to `SMALLINT` (0/1). Use integer values in queries:
+
+```python
+# Correct
+stmt = select(User).where(User.is_active == 1)
+
+# Also works — SQLAlchemy handles the conversion
+stmt = select(User).where(User.is_active == True)  # noqa: E712
+```
+
+### 3. No JSON Type
+
+CUBRID has no JSON column type. Store structured data as serialized strings:
+
+```python
+import json
+
+
+class Config(Base):
+    __tablename__ = "configs"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    data: Mapped[str] = mapped_column(STRING)  # Store JSON as string
+
+    @property
+    def parsed_data(self) -> dict:
+        return json.loads(self.data) if self.data else {}
+
+    @parsed_data.setter
+    def parsed_data(self, value: dict) -> None:
+        self.data = json.dumps(value)
+```
+
+### 4. Collection Types Instead of ARRAY
+
+CUBRID uses `SET`, `MULTISET`, and `SEQUENCE` instead of SQL `ARRAY`:
+
+| Type | Ordered | Duplicates | Use Case |
+|---|:---:|:---:|---|
+| `SET` | ✗ | ✗ | Unique tags, categories |
+| `MULTISET` | ✗ | ✓ | Counts, repeated values |
+| `SEQUENCE` | ✓ | ✓ | Ordered lists, history |
+
+### 5. DDL Auto-Commits
+
+CUBRID implicitly commits all DDL statements (`CREATE TABLE`, `ALTER TABLE`, etc.).
+This means `Base.metadata.create_all(engine)` commits immediately — it cannot be
+rolled back. The Alembic integration sets `transactional_ddl = False` accordingly.
+
+### 6. No Temporary Tables
+
+CUBRID does not support `CREATE TEMPORARY TABLE`. Use regular tables with
+a cleanup strategy if you need temporary storage.
+
+### 7. Identifier Case Folding
+
+CUBRID folds identifiers to **lowercase** (unlike the SQL standard which uses
+uppercase). Quoted identifiers preserve case but are rarely needed.
+
+---
+
+## Additional Practical Recipes
+
+### Idempotent user upsert with unique email
+
+```python
+from sqlalchemy import func
+from sqlalchemy_cubrid import insert
+
+with Session(engine) as session:
+    stmt = insert(User.__table__).values(id=1, name="Alice", email="alice@example.com")
+    stmt = stmt.on_duplicate_key_update(
+        name=stmt.inserted.name,
+        updated_at=func.current_datetime(),
+    )
+    session.execute(stmt)
+    session.commit()
+```
+
+### Bulk create with explicit flush windows
+
+```python
+BATCH = 500
+
+with Session(engine) as session:
+    for i in range(0, len(payload_rows), BATCH):
+        chunk = payload_rows[i : i + BATCH]
+        session.add_all(User(name=row["name"], email=row["email"]) for row in chunk)
+        session.flush()  # keep memory bounded
+    session.commit()
+```
+
+### Pessimistic lock for balance transfer
+
+```python
+from sqlalchemy import select
+
+with Session(engine) as session:
+    account = session.scalars(
+        select(Account).where(Account.id == 10).with_for_update()
+    ).one()
+    account.balance -= 100
+    session.commit()
+```
+
+!!! warning "Avoid `RETURNING`-based ORM patterns"
+    CUBRID does not support `RETURNING`. Prefer `flush()` + mapped identity values.
+
+!!! warning "Use CUBRID extension APIs for upsert"
+    For ODKU behavior, use `sqlalchemy_cubrid.insert()` rather than SQLAlchemy's generic `insert()`.
+
+!!! tip "Prefer `selectinload` for large collections"
+    `joinedload` can multiply rows significantly on one-to-many joins.
+
+---
+
+*See also: [Feature Support Matrix](FEATURE_SUPPORT.md) for a complete comparison
+with MySQL, PostgreSQL, and SQLite.*
+
+---
+
+# CUBRID-Specific DML Constructs
+
+This dialect provides custom SQLAlchemy constructs for CUBRID-specific DML (Data Manipulation Language) features that go beyond the standard SQLAlchemy API.
+
+---
+
+## Table of Contents
+
+- [ON DUPLICATE KEY UPDATE](#on-duplicate-key-update)
+  - [Basic Usage](#basic-usage)
+  - [Referencing Inserted Values](#referencing-inserted-values)
+  - [Argument Forms](#argument-forms)
+- [REPLACE INTO](#replace-into)
+  - [Basic Usage](#basic-usage-2)
+  - [Behavior Notes](#behavior-notes)
+- [MERGE Statement](#merge-statement)
+  - [Basic Usage](#basic-usage-3)
+  - [MERGE with WHERE Clauses](#merge-with-where-clauses)
+  - [MERGE with DELETE WHERE](#merge-with-delete-where)
+  - [Builder Methods](#builder-methods)
+- [GROUP_CONCAT](#group_concat)
+- [TRUNCATE TABLE](#truncate-table)
+- [FOR UPDATE](#for-update)
+- [UPDATE with LIMIT](#update-with-limit)
+- [Index Hints](#index-hints)
+  - [USING INDEX](#using-index)
+  - [USE / FORCE / IGNORE INDEX](#use--force--ignore-index)
+- [Query Trace](#query-trace)
+
+---
+
+## ON DUPLICATE KEY UPDATE
+
+CUBRID supports `INSERT … ON DUPLICATE KEY UPDATE` with `VALUES()` references, identical to MySQL's pre-8.0 syntax.
+
+### Basic Usage
+
+```python
+from sqlalchemy_cubrid import insert
+
+stmt = insert(users).values(id=1, name="alice", email="alice@example.com")
+stmt = stmt.on_duplicate_key_update(name="updated_alice")
+```
+
+**Generated SQL:**
+
+```sql
+INSERT INTO users (id, name, email)
+VALUES (1, 'alice', 'alice@example.com')
+ON DUPLICATE KEY UPDATE name = 'updated_alice'
+```
+
+### Referencing Inserted Values
+
+Use `stmt.inserted` to reference the values being inserted — rendered as `VALUES(column_name)` in SQL:
+
+```python
+from sqlalchemy_cubrid import insert
+
+stmt = insert(users).values(id=1, name="alice", email="alice@example.com")
+stmt = stmt.on_duplicate_key_update(
+    name=stmt.inserted.name,      # → VALUES(name)
+    email=stmt.inserted.email,    # → VALUES(email)
+)
+```
+
+**Generated SQL:**
+
+```sql
+INSERT INTO users (id, name, email)
+VALUES (1, 'alice', 'alice@example.com')
+ON DUPLICATE KEY UPDATE name = VALUES(name), email = VALUES(email)
+```
+
+### Argument Forms
+
+The `on_duplicate_key_update()` method accepts three argument forms:
+
+```python
+# 1. Keyword arguments
+stmt.on_duplicate_key_update(name="value", email="value")
+
+# 2. Dictionary
+stmt.on_duplicate_key_update({"name": "value", "email": "value"})
+
+# 3. List of tuples (preserves column ordering)
+stmt.on_duplicate_key_update([
+    ("name", "value"),
+    ("email", "value"),
+])
+```
+
+> **Note**: You cannot mix keyword arguments with positional arguments (dict/list). Choose one form per call.
+
+### Subquery Values in ON DUPLICATE KEY UPDATE
+
+CUBRID supports using subquery expressions as update values in the ON DUPLICATE KEY UPDATE clause:
+
+```python
+from sqlalchemy_cubrid import insert
+import sqlalchemy as sa
+
+stmt = insert(users).values(id=1, name="alice", email="alice@example.com")
+stmt = stmt.on_duplicate_key_update(
+    name=sa.select(sa.func.max(users.c.name)).scalar_subquery()
+)
+```
+
+**Generated SQL:**
+
+```sql
+INSERT INTO users (id, name, email)
+VALUES (1, 'alice', 'alice@example.com')
+ON DUPLICATE KEY UPDATE name = (SELECT max(users.name) FROM users)
+```
+
+> **Important**: CUBRID does **not** support the `VALUES()` function in ON DUPLICATE KEY UPDATE when used with arbitrary expressions. The `stmt.inserted` reference (which generates `VALUES(column)` syntax) works for simple column references but may not work in all CUBRID versions. For complex update expressions, use subqueries or literal values instead.
+
+---
+
+## REPLACE INTO
+
+CUBRID supports `REPLACE INTO`, which uses INSERT-like syntax and replaces existing rows on duplicate-key conflicts.
+
+### Basic Usage
+
+```python
+from sqlalchemy_cubrid import replace
+
+stmt = replace(users).values(id=1, name="alice", email="alice@example.com")
+```
+
+**Generated SQL:**
+
+```sql
+REPLACE INTO users (id, name, email)
+VALUES (1, 'alice', 'alice@example.com')
+```
+
+### Behavior Notes
+
+- `REPLACE INTO` uses all standard INSERT value patterns (`values`, `from_select`, etc.)
+- On duplicate key conflicts, CUBRID replaces the existing row with the new row
+- `REPLACE INTO` does not support `ON DUPLICATE KEY UPDATE`; use `insert(...).on_duplicate_key_update(...)` for in-place updates
+
+---
+
+## MERGE Statement
+
+CUBRID supports the full SQL `MERGE` statement for conditional INSERT/UPDATE in a single operation.
+
+### Basic Usage
+
+```python
+from sqlalchemy_cubrid.dml import merge
+
+stmt = (
+    merge(target_table)
+    .using(source_table)
+    .on(target_table.c.id == source_table.c.id)
+    .when_matched_then_update(
+        {"name": source_table.c.name, "email": source_table.c.email}
+    )
+    .when_not_matched_then_insert(
+        {
+            "id": source_table.c.id,
+            "name": source_table.c.name,
+            "email": source_table.c.email,
+        }
+    )
+)
+```
+
+**Generated SQL:**
+
+```sql
+MERGE INTO target_table
+USING source_table
+ON (target_table.id = source_table.id)
+WHEN MATCHED THEN UPDATE SET name = source_table.name, email = source_table.email
+WHEN NOT MATCHED THEN INSERT (id, name, email)
+  VALUES (source_table.id, source_table.name, source_table.email)
+```
+
+### MERGE with WHERE Clauses
+
+Both `WHEN MATCHED` and `WHEN NOT MATCHED` clauses support optional `WHERE` filters:
+
+```python
+stmt = (
+    merge(target_table)
+    .using(source_table)
+    .on(target_table.c.id == source_table.c.id)
+    .when_matched_then_update(
+        {"name": source_table.c.name},
+        where=source_table.c.name.is_not(None),  # Only update non-null names
+    )
+    .when_not_matched_then_insert(
+        {"id": source_table.c.id, "name": source_table.c.name},
+        where=source_table.c.name.is_not(None),  # Only insert non-null names
+    )
+)
+```
+
+**Generated SQL:**
+
+```sql
+MERGE INTO target_table
+USING source_table
+ON (target_table.id = source_table.id)
+WHEN MATCHED THEN UPDATE SET name = source_table.name
+  WHERE source_table.name IS NOT NULL
+WHEN NOT MATCHED THEN INSERT (id, name)
+  VALUES (source_table.id, source_table.name)
+  WHERE source_table.name IS NOT NULL
+```
+
+### MERGE with DELETE WHERE
+
+CUBRID supports `DELETE WHERE` within a `WHEN MATCHED` clause to conditionally delete rows:
+
+```python
+stmt = (
+    merge(target_table)
+    .using(source_table)
+    .on(target_table.c.id == source_table.c.id)
+    .when_matched_then_update(
+        {"name": source_table.c.name},
+        delete_where=target_table.c.active == False,
+    )
+    .when_not_matched_then_insert(
+        {"id": source_table.c.id, "name": source_table.c.name}
+    )
+)
+```
+
+**Generated SQL:**
+
+```sql
+MERGE INTO target_table
+USING source_table
+ON (target_table.id = source_table.id)
+WHEN MATCHED THEN UPDATE SET name = source_table.name
+  DELETE WHERE target_table.active = 0
+WHEN NOT MATCHED THEN INSERT (id, name)
+  VALUES (source_table.id, source_table.name)
+```
+
+You can also add `DELETE WHERE` separately via `when_matched_then_delete()`:
+
+```python
+stmt = (
+    merge(target_table)
+    .using(source_table)
+    .on(target_table.c.id == source_table.c.id)
+    .when_matched_then_update({"name": source_table.c.name})
+    .when_matched_then_delete(where=target_table.c.active == False)
+    .when_not_matched_then_insert(
+        {"id": source_table.c.id, "name": source_table.c.name}
+    )
+)
+```
+
+### Builder Methods
+
+| Method                                                       | Description                                    |
+|--------------------------------------------------------------|------------------------------------------------|
+| `merge(target)`                                              | Factory function — sets the target table       |
+| `.using(source)`                                             | Source table or subquery                        |
+| `.on(condition)`                                             | Join condition                                 |
+| `.when_matched_then_update(values, where=, delete_where=)`   | WHEN MATCHED → UPDATE SET clause               |
+| `.when_matched_then_delete(where=)`                          | Adds DELETE WHERE to existing WHEN MATCHED     |
+| `.when_not_matched_then_insert(values, where=)`              | WHEN NOT MATCHED → INSERT clause               |
+
+**Requirements:**
+- `using()` and `on()` are mandatory
+- At least one of `when_matched_then_update` or `when_not_matched_then_insert` must be specified
+- `when_matched_then_delete` can only be called after `when_matched_then_update`
+
+---
+
+## GROUP_CONCAT
+
+CUBRID supports `GROUP_CONCAT` as an aggregate function:
+
+```python
+import sqlalchemy as sa
+
+# Basic GROUP_CONCAT
+stmt = sa.select(sa.func.group_concat(users.c.name))
+# → SELECT GROUP_CONCAT(users.name) FROM users
+
+# With GROUP BY
+stmt = (
+    sa.select(
+        users.c.department,
+        sa.func.group_concat(users.c.name),
+    )
+    .group_by(users.c.department)
+)
+# → SELECT users.department, GROUP_CONCAT(users.name)
+#   FROM users GROUP BY users.department
+```
+
+CUBRID's `GROUP_CONCAT` supports `DISTINCT`, `ORDER BY`, and `SEPARATOR` modifiers at the SQL level, though the standard `sa.func.group_concat()` API provides access to basic usage.
+
+---
+
+## TRUNCATE TABLE
+
+CUBRID supports `TRUNCATE TABLE`, which is faster than `DELETE` for removing all rows:
+
+```python
+from sqlalchemy import text
+
+with engine.begin() as conn:
+    conn.execute(text("TRUNCATE TABLE temp_data"))
+```
+
+The dialect includes `TRUNCATE` in its autocommit detection pattern, so it will be executed with autocommit enabled (matching CUBRID's implicit DDL commit behavior).
+
+---
+
+## FOR UPDATE
+
+CUBRID supports `SELECT … FOR UPDATE` for row-level locking:
+
+```python
+import sqlalchemy as sa
+
+# Basic FOR UPDATE
+stmt = sa.select(users).where(users.c.id == 1).with_for_update()
+# → SELECT ... FROM users WHERE users.id = 1 FOR UPDATE
+
+# FOR UPDATE OF specific columns
+stmt = (
+    sa.select(users)
+    .where(users.c.id == 1)
+    .with_for_update(of=[users.c.name, users.c.email])
+)
+# → SELECT ... FROM users WHERE users.id = 1 FOR UPDATE OF users.name, users.email
+```
+
+> **Note**: CUBRID does **not** support `NOWAIT` or `SKIP LOCKED` modifiers. Using them will have no effect.
+
+---
+
+## UPDATE with LIMIT
+
+CUBRID supports `UPDATE … LIMIT n` to restrict the number of rows affected:
+
+```python
+from sqlalchemy import update
+
+stmt = (
+    update(users)
+    .values(status="inactive")
+    .where(users.c.last_login < "2025-01-01")
+    .execution_options(**{"cubrid_limit": 100})
+)
+# → UPDATE users SET status = 'inactive'
+#   WHERE users.last_login < '2025-01-01'
+#   LIMIT 100
+```
+
+> **Note**: This is a CUBRID/MySQL extension. PostgreSQL and SQLite do not support `UPDATE … LIMIT`.
+
+---
+
+## Index Hints
+
+CUBRID supports index hints in SELECT queries. Use SQLAlchemy's built-in hint mechanisms — no custom dialect constructs are needed.
+
+### USING INDEX
+
+```python
+import sqlalchemy as sa
+
+# Using with_hint (dialect-specific — only emitted for CUBRID)
+stmt = (
+    sa.select(users)
+    .with_hint(users, "USING INDEX idx_users_name", dialect_name="cubrid")
+)
+
+# Using suffix_with (always emitted)
+stmt = sa.select(users).suffix_with("USING INDEX idx_users_name")
+```
+
+### USE / FORCE / IGNORE INDEX
+
+```python
+# USE INDEX
+stmt = (
+    sa.select(users)
+    .with_hint(users, "USE INDEX (idx_users_name)", dialect_name="cubrid")
+)
+
+# FORCE INDEX
+stmt = (
+    sa.select(users)
+    .with_hint(users, "FORCE INDEX (idx_users_email)", dialect_name="cubrid")
+)
+
+# IGNORE INDEX
+stmt = (
+    sa.select(users)
+    .with_hint(users, "IGNORE INDEX (idx_users_old)", dialect_name="cubrid")
+)
+```
+
+> **Portability tip**: When using `with_hint(dialect_name="cubrid")`, the hint is only emitted when compiling against the CUBRID dialect. Other dialects will ignore it, making your code safely portable across database backends.
+
+---
+
+## Query Trace
+
+CUBRID does not support the standard SQL `EXPLAIN` statement. Instead, it provides a session-level trace facility via `SET TRACE ON` / `SHOW TRACE` commands.
+
+The `trace_query()` utility wraps this workflow:
+
+```python
+from sqlalchemy import create_engine, text
+from sqlalchemy_cubrid.trace import trace_query
+
+engine = create_engine("cubrid://dba@localhost:33000/demodb")
+with engine.connect() as conn:
+    traces = trace_query(conn, text("SELECT * FROM users WHERE id = 1"))
+    for line in traces:
+        print(line)
+```
+
+**How it works:**
+
+1. `SET TRACE ON` — enables trace collection for the session
+2. Executes the provided SQL statement
+3. `SHOW TRACE` — retrieves trace statistics
+4. `SET TRACE OFF` — disables trace (always, even on error)
+
+**Trace output** includes execution statistics such as query time, fetch count, and I/O operations.
+
+> **Note**: `trace_query()` requires a live CUBRID connection. It cannot be used in offline (compilation-only) mode. The trace is session-scoped and does not affect other connections.
+
+---
+
+## Cookbook: Production DML Patterns
+
+### 1) Atomic counters with `ON DUPLICATE KEY UPDATE`
+
+```python
+from sqlalchemy import func
+from sqlalchemy_cubrid import insert
+
+stmt = (
+    insert(daily_metrics)
+    .values(metric_date="2026-04-06", page_views=1)
+    .on_duplicate_key_update(
+        page_views=daily_metrics.c.page_views + 1,
+        updated_at=func.current_datetime(),
+    )
+)
+```
+
+Use this pattern for idempotent event aggregation without read-before-write.
+
+### 2) Preserve column update order
+
+`on_duplicate_key_update()` accepts list-of-tuples so SQL column ordering is deterministic:
+
+```python
+stmt = (
+    insert(accounts)
+    .values(id=100, status="active", updated_by="system")
+    .on_duplicate_key_update([
+        ("status", "active"),
+        ("updated_by", "system"),
+    ])
+)
+```
+
+This mirrors the internal `_parameter_ordering` behavior in `OnDuplicateClause`.
+
+### 3) Idempotent sync with incoming values
+
+```python
+stmt = insert(users).values(id=1, name="Alice", email="alice@example.com")
+stmt = stmt.on_duplicate_key_update(
+    name=stmt.inserted.name,
+    email=stmt.inserted.email,
+)
+```
+
+### 4) Batch ingest from staging table with `MERGE`
+
+```python
+from sqlalchemy import select
+from sqlalchemy_cubrid import merge
+
+source = (
+    select(staging_users.c.user_id, staging_users.c.name, staging_users.c.email)
+    .where(staging_users.c.is_valid == 1)
+    .subquery()
+)
+
+stmt = (
+    merge(users)
+    .using(source)
+    .on(users.c.id == source.c.user_id)
+    .when_matched_then_update(
+        {
+            "name": source.c.name,
+            "email": source.c.email,
+        },
+        where=source.c.email.is_not(None),
+    )
+    .when_not_matched_then_insert(
+        {
+            "id": source.c.user_id,
+            "name": source.c.name,
+            "email": source.c.email,
+        }
+    )
+)
+```
+
+### 5) Soft-delete invalid rows during `MERGE`
+
+```python
+stmt = (
+    merge(products)
+    .using(source_products)
+    .on(products.c.sku == source_products.c.sku)
+    .when_matched_then_update(
+        {"name": source_products.c.name},
+        delete_where=source_products.c.discontinued == 1,
+    )
+    .when_not_matched_then_insert(
+        {
+            "sku": source_products.c.sku,
+            "name": source_products.c.name,
+        }
+    )
+)
+```
+
+### 6) Safe `REPLACE INTO` for immutable snapshots
+
+```python
+from sqlalchemy_cubrid import replace
+
+stmt = replace(user_daily_snapshot).values(
+    user_id=42,
+    snapshot_date="2026-04-06",
+    payload="{...}",
+)
+```
+
+Use `REPLACE` for full-row replacement workloads where delete+insert semantics are acceptable.
+
+---
+
+## DML Execution Flow
+
+### `ON DUPLICATE KEY UPDATE`
+
+```mermaid
+sequenceDiagram
+    participant App as Application
+    participant SA as SQLAlchemy Core/ORM
+    participant Dialect as sqlalchemy-cubrid
+    participant DB as CUBRID
+
+    App->>SA: insert(...).on_duplicate_key_update(...)
+    SA->>Dialect: Compile Insert + OnDuplicateClause
+    Dialect->>DB: INSERT ... ON DUPLICATE KEY UPDATE ...
+    DB-->>Dialect: Inserted or updated rowcount
+    Dialect-->>SA: Cursor result
+    SA-->>App: ResultProxy / ORM state sync
+```
+
+### `MERGE`
+
+```mermaid
+sequenceDiagram
+    participant App as Application
+    participant SA as SQLAlchemy
+    participant Merge as Merge builder
+    participant DB as CUBRID
+
+    App->>Merge: merge(target).using(source).on(cond)
+    App->>Merge: when_matched_then_update(...)
+    App->>Merge: when_not_matched_then_insert(...)
+    Merge->>SA: Render MERGE statement
+    SA->>DB: MERGE INTO ...
+    DB-->>SA: Matched/inserted row effects
+    SA-->>App: Execution result
+```
+
+---
+
+## Gotchas and Limitations
+
+!!! warning "Do not pass empty update mappings"
+    `on_duplicate_key_update({})` raises an error.
+    Pass a non-empty dict, `ColumnCollection`, or list of `(key, value)` tuples.
+
+!!! warning "Do not mix positional and keyword arguments"
+    `on_duplicate_key_update()` enforces a single input style:
+    either positional (`dict`/`list[tuple]`) or keyword args.
+
+!!! warning "MERGE requires `using()` and `on()`"
+    Missing `using()` or `on()` generates invalid SQL. Always provide both before execution.
+
+!!! warning "`when_matched_then_delete()` requires prior update clause"
+    In this dialect implementation, `when_matched_then_delete()` must be called after `when_matched_then_update()`.
+
+!!! tip "Prefer ODKU for high-frequency single-row upserts"
+    `ON DUPLICATE KEY UPDATE` is usually simpler and lower overhead than `MERGE` for key-based singleton updates.
+
+---
+
+## Performance Notes
+
+| Pattern | Best Fit | Relative Cost | Notes |
+|---|---|---|---|
+| `INSERT ... ON DUPLICATE KEY UPDATE` | Single-row or small upserts on unique key | Low | Efficient conflict handling in one statement. |
+| `MERGE` | Set-based sync from source table/subquery | Medium | Most expressive; can update/insert/delete with predicates. |
+| `REPLACE INTO` | Full-row replacement semantics | Medium-High | Delete+insert behavior can trigger more index and FK work. |
+
+Practical guidance:
+
+1. Benchmark with representative cardinality and index layout.
+2. Keep matched predicates sargable (`ON` keys indexed).
+3. Use tuple ordering in ODKU when deterministic SQL text benefits statement cache behavior.
+
+---
+
+*See also: [Feature Support](FEATURE_SUPPORT.md) · [Type Mapping](TYPES.md) · [Connection Setup](CONNECTION.md)*
+
+---
+
+# Type Mapping
+
+This document covers the full type mapping between SQLAlchemy types, CUBRID SQL types, and the CUBRID-specific type extensions provided by this dialect.
+
+---
+
+## Table of Contents
+
+- [Standard SQL Types](#standard-sql-types)
+- [CUBRID-Specific Types](#cubrid-specific-types)
+  - [Numeric Types](#numeric-types)
+  - [String Types](#string-types)
+  - [Bit String Types](#bit-string-types)
+  - [LOB Types](#lob-types)
+  - [Collection Types](#collection-types)
+- [Type Reflection (ischema_names)](#type-reflection-ischema_names)
+- [Boolean Handling](#boolean-handling)
+- [Text and STRING](#text-and-string)
+- [Usage Examples](#usage-examples)
+
+---
+
+## Standard SQL Types
+
+The dialect maps standard SQLAlchemy types to CUBRID SQL types:
+
+| SQLAlchemy Type      | CUBRID SQL Type   | Notes                                      |
+|----------------------|-------------------|--------------------------------------------|
+| `Integer`            | `INTEGER`         | 32-bit signed integer                      |
+| `SmallInteger`       | `SMALLINT`        | 16-bit signed integer                      |
+| `BigInteger`         | `BIGINT`          | 64-bit signed integer                      |
+| `Float`              | `FLOAT`           | 7-digit precision (single precision)       |
+| `Double` / `REAL`    | `DOUBLE`          | 15-digit precision (double precision)      |
+| `Numeric(p, s)`      | `NUMERIC(p, s)`   | Exact numeric, up to 38 digits             |
+| `String(n)`          | `VARCHAR(n)`      | Variable-length character data             |
+| `Text`               | `STRING`          | Alias for `VARCHAR(1,073,741,823)`         |
+| `Unicode(n)`         | `NVARCHAR(n)`     | National character set                     |
+| `UnicodeText`        | `NVARCHAR`        | National character, max length             |
+| `LargeBinary`        | `BLOB`            | Binary Large Object                        |
+| `Boolean`            | `SMALLINT`        | ⚠️ No native boolean — mapped to 0/1      |
+| `Date`               | `DATE`            | Calendar date                              |
+| `Time`               | `TIME`            | Time of day                                |
+| `DateTime`           | `DATETIME`        | Date and time combined                     |
+| `TIMESTAMP`          | `TIMESTAMP`       | Timestamp with auto-update behavior        |
+
+> **VARCHAR default length**: When `String()` is used without a length, the dialect defaults to `VARCHAR(4096)`.
+
+---
+
+## CUBRID-Specific Types
+
+Import CUBRID-specific types from the dialect package:
+
+```python
+from sqlalchemy_cubrid import (
+    # Numeric
+    SMALLINT, BIGINT, NUMERIC, DECIMAL, FLOAT, REAL,
+    DOUBLE, DOUBLE_PRECISION,
+    # String
+    CHAR, VARCHAR, NCHAR, NVARCHAR, STRING,
+    # Binary
+    BIT,
+    # LOB
+    BLOB, CLOB,
+    # Collections
+    SET, MULTISET, SEQUENCE,
+)
+```
+
+### Numeric Types
+
+| Type               | CUBRID SQL        | Description                                  |
+|--------------------|-------------------|----------------------------------------------|
+| `SMALLINT`         | `SMALLINT`        | 16-bit signed integer (-32,768 to 32,767)    |
+| `BIGINT`           | `BIGINT`          | 64-bit signed integer                        |
+| `NUMERIC(p, s)`    | `NUMERIC(p, s)`   | Exact numeric with precision (1–38) and scale |
+| `DECIMAL(p, s)`    | `DECIMAL(p, s)`   | Synonym for `NUMERIC`                        |
+| `FLOAT(p)`         | `FLOAT(p)`        | Approximate numeric, default precision 7     |
+| `REAL`             | `REAL`            | Synonym for single-precision float           |
+| `DOUBLE`           | `DOUBLE`          | Double-precision floating point              |
+| `DOUBLE_PRECISION` | `DOUBLE PRECISION`| Synonym for `DOUBLE`                         |
+
+```python
+from sqlalchemy import Column, MetaData, Table
+from sqlalchemy_cubrid import NUMERIC, DOUBLE, BIGINT
+
+metadata = MetaData()
+products = Table(
+    "products", metadata,
+    Column("id", BIGINT, primary_key=True),
+    Column("price", NUMERIC(10, 2)),
+    Column("weight", DOUBLE),
+)
+```
+
+### String Types
+
+| Type          | CUBRID SQL                  | Description                              |
+|---------------|-----------------------------|------------------------------------------|
+| `CHAR(n)`     | `CHAR(n)`                   | Fixed-length character data              |
+| `VARCHAR(n)`  | `VARCHAR(n)`                | Variable-length character data           |
+| `NCHAR(n)`    | `NCHAR(n)`                  | Fixed-length national character data     |
+| `NVARCHAR(n)` | `NCHAR VARYING(n)`          | Variable-length national character data  |
+| `STRING`      | `STRING`                    | `VARCHAR(1,073,741,823)` — max length    |
+
+```python
+from sqlalchemy_cubrid import CHAR, VARCHAR, NVARCHAR, STRING
+
+metadata = MetaData()
+users = Table(
+    "users", metadata,
+    Column("code", CHAR(10)),
+    Column("name", VARCHAR(255)),
+    Column("name_ko", NVARCHAR(255)),
+    Column("bio", STRING),
+)
+```
+
+> **NCHAR / NVARCHAR**: CUBRID has first-class national character types for multi-language support. The dialect renders `NVARCHAR(n)` as `NCHAR VARYING(n)` to match CUBRID's preferred DDL syntax.
+
+### Bit String Types
+
+| Type                | CUBRID SQL         | Description                   |
+|---------------------|--------------------|-------------------------------|
+| `BIT(n)`            | `BIT(n)`           | Fixed-length bit string       |
+| `BIT(n, varying=True)` | `BIT VARYING(n)` | Variable-length bit string   |
+
+```python
+from sqlalchemy_cubrid import BIT
+
+metadata = MetaData()
+flags = Table(
+    "flags", metadata,
+    Column("fixed_bits", BIT(8)),          # BIT(8)
+    Column("var_bits", BIT(256, varying=True)),  # BIT VARYING(256)
+)
+```
+
+### LOB Types
+
+| Type   | CUBRID SQL | Description                |
+|--------|------------|----------------------------|
+| `BLOB` | `BLOB`     | Binary Large Object        |
+| `CLOB` | `CLOB`     | Character Large Object     |
+
+```python
+from sqlalchemy_cubrid import BLOB, CLOB
+
+metadata = MetaData()
+documents = Table(
+    "documents", metadata,
+    Column("content", CLOB),
+    Column("attachment", BLOB),
+)
+```
+
+### Collection Types
+
+CUBRID provides three collection types that have no direct equivalent in standard SQL:
+
+| Type             | CUBRID SQL          | Description                                    |
+|------------------|---------------------|------------------------------------------------|
+| `SET(type)`      | `SET(type)`         | Unordered collection of **unique** elements    |
+| `MULTISET(type)` | `MULTISET(type)`    | Unordered collection, **duplicates** allowed   |
+| `SEQUENCE(type)` | `SEQUENCE(type)`    | **Ordered** collection, **duplicates** allowed |
+
+```python
+from sqlalchemy_cubrid import SET, MULTISET, SEQUENCE, VARCHAR
+
+metadata = MetaData()
+tagged_items = Table(
+    "tagged_items", metadata,
+    Column("tags", SET("VARCHAR")),
+    Column("scores", MULTISET("INTEGER")),
+    Column("history", SEQUENCE("DOUBLE")),
+)
+```
+
+**DDL output:**
+
+```sql
+CREATE TABLE tagged_items (
+    tags SET(VARCHAR),
+    scores MULTISET(INTEGER),
+    history SEQUENCE(DOUBLE)
+)
+```
+
+> **Note**: Collection types are CUBRID-specific. Standard SQL uses `ARRAY[]` (PostgreSQL) or has no collection support. If portability is a concern, use `SET`/`MULTISET`/`SEQUENCE` only when targeting CUBRID.
+
+---
+
+## Type Reflection (ischema_names)
+
+When reflecting existing tables, the dialect maps CUBRID type names back to SQLAlchemy types:
+
+| CUBRID Type Name    | SQLAlchemy Type    |
+|---------------------|--------------------|
+| `SHORT`             | `SMALLINT`         |
+| `SMALLINT`          | `SMALLINT`         |
+| `INTEGER`           | `INTEGER`          |
+| `BIGINT`            | `BIGINT`           |
+| `NUMERIC`           | `NUMERIC`          |
+| `DECIMAL`           | `DECIMAL`          |
+| `FLOAT`             | `FLOAT`            |
+| `DOUBLE`            | `DOUBLE`           |
+| `DOUBLE PRECISION`  | `DOUBLE_PRECISION` |
+| `DATE`              | `DATE`             |
+| `TIME`              | `TIME`             |
+| `TIMESTAMP`         | `TIMESTAMP`        |
+| `DATETIME`          | `DATETIME`         |
+| `BIT`               | `BIT`              |
+| `BIT VARYING`       | `BIT`              |
+| `CHAR`              | `CHAR`             |
+| `VARCHAR`           | `VARCHAR`          |
+| `NCHAR`             | `NCHAR`            |
+| `CHAR VARYING`      | `NVARCHAR`         |
+| `STRING`            | `STRING`           |
+| `BLOB`              | `BLOB`             |
+| `CLOB`              | `CLOB`             |
+| `SET`               | `SET`              |
+| `MULTISET`          | `MULTISET`         |
+| `SEQUENCE`          | `SEQUENCE`         |
+
+---
+
+## Boolean Handling
+
+CUBRID does not have a native `BOOLEAN` data type. The dialect maps `Boolean` to `SMALLINT`:
+
+```python
+from sqlalchemy import Boolean, Column
+
+class User(Base):
+    __tablename__ = "users"
+    is_active = Column(Boolean)  # → SMALLINT in DDL
+```
+
+- `True` is stored as `1`
+- `False` is stored as `0`
+- The `supports_native_boolean = False` flag tells SQLAlchemy to handle the conversion automatically
+
+---
+
+## Text and STRING
+
+SQLAlchemy's `Text` type maps to CUBRID's `STRING` type:
+
+```python
+from sqlalchemy import Text, Column
+
+class Article(Base):
+    __tablename__ = "articles"
+    body = Column(Text)  # → STRING in DDL
+```
+
+CUBRID's `STRING` is an alias for `VARCHAR(1,073,741,823)` — the maximum possible `VARCHAR` length. This is functionally equivalent to `TEXT` in other databases.
+
+---
+
+## Usage Examples
+
+### Defining a Table with Mixed Types
+
+```python
+from sqlalchemy import Column, MetaData, Table, Integer, String, DateTime, Text
+from sqlalchemy_cubrid import NUMERIC, CLOB, SET
+
+metadata = MetaData()
+
+orders = Table(
+    "orders", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("customer_name", String(100), nullable=False),
+    Column("total", NUMERIC(12, 2)),
+    Column("notes", Text),
+    Column("attachments", CLOB),
+    Column("tags", SET("VARCHAR")),
+    Column("created_at", DateTime),
+)
+```
+
+### Reflecting an Existing Table
+
+```python
+from sqlalchemy import MetaData, create_engine
+
+engine = create_engine("cubrid://dba@localhost:33000/testdb")
+metadata = MetaData()
+metadata.reflect(bind=engine)
+
+# Access reflected table
+users = metadata.tables["users"]
+for col in users.columns:
+    print(f"{col.name}: {col.type}")
+```
+
+### Using colspecs for Type Coercion
+
+The dialect registers type coercions (`colspecs`) that automatically map generic SQLAlchemy types:
+
+| Generic Type      | CUBRID Type  |
+|-------------------|--------------|
+| `sqltypes.Numeric`| `NUMERIC`    |
+| `sqltypes.Float`  | `FLOAT`      |
+| `sqltypes.Time`   | `TIME`       |
+
+This means `Column(Numeric(10, 2))` automatically uses the CUBRID `NUMERIC` implementation without explicit imports.
+
+---
+
+## Machine-Readable Type Mapping Matrix
+
+The table below is designed for copy/paste into tooling pipelines and architecture docs.
+
+| CUBRID Type | SQLAlchemy Type | Python Type | Notes |
+|---|---|---|---|
+| `SHORT` | `sqlalchemy_cubrid.SMALLINT` | `int` | Reflected alias for `SMALLINT`. |
+| `SMALLINT` | `sqlalchemy_cubrid.SMALLINT` | `int` | 16-bit signed integer. |
+| `INTEGER` | `sqlalchemy.Integer` | `int` | Standard 32-bit integer. |
+| `BIGINT` | `sqlalchemy_cubrid.BIGINT` | `int` | 64-bit integer values. |
+| `NUMERIC(p,s)` | `sqlalchemy_cubrid.NUMERIC` | `decimal.Decimal` | Exact numeric; precision 1-38. |
+| `DECIMAL(p,s)` | `sqlalchemy_cubrid.DECIMAL` | `decimal.Decimal` | Synonym of `NUMERIC`. |
+| `FLOAT(p)` | `sqlalchemy_cubrid.FLOAT` | `float` | Approximate numeric, default precision 7. |
+| `REAL` | `sqlalchemy_cubrid.REAL` | `float` | Approximate numeric single precision semantics. |
+| `DOUBLE` | `sqlalchemy_cubrid.DOUBLE` | `float` | Approximate numeric double precision. |
+| `DOUBLE PRECISION` | `sqlalchemy_cubrid.DOUBLE_PRECISION` | `float` | Reflected as dedicated dialect type. |
+| `MONETARY` | `sqlalchemy_cubrid.MONETARY` | `float` | Currency-aware server type; represented as numeric value in Python. |
+| `DATE` | `sqlalchemy.Date` | `datetime.date` | Calendar date only. |
+| `TIME` | `sqlalchemy.Time` / `sqlalchemy_cubrid.TIME` | `datetime.time` | Time of day only. |
+| `DATETIME` | `sqlalchemy.DateTime` / `sqlalchemy_cubrid.DATETIME` | `datetime.datetime` | Date + time in one value. |
+| `TIMESTAMP` | `sqlalchemy.TIMESTAMP` / `sqlalchemy_cubrid.TIMESTAMP` | `datetime.datetime` | CUBRID timestamp semantics may auto-update depending on schema defaults. |
+| `BIT(n)` | `sqlalchemy_cubrid.BIT(length=n, varying=False)` | `bytes` / `str` | Representation may vary by DBAPI driver. |
+| `BIT VARYING(n)` | `sqlalchemy_cubrid.BIT(length=n, varying=True)` | `bytes` / `str` | Variable-length bit string. |
+| `CHAR(n)` | `sqlalchemy_cubrid.CHAR` | `str` | Fixed-length character data. |
+| `VARCHAR(n)` | `sqlalchemy_cubrid.VARCHAR` / `sqlalchemy.String` | `str` | Variable-length string. |
+| `NCHAR(n)` | `sqlalchemy_cubrid.NCHAR` | `str` | National character set type. |
+| `CHAR VARYING(n)` | `sqlalchemy_cubrid.NVARCHAR` | `str` | Reflected to NVARCHAR by this dialect. |
+| `STRING` | `sqlalchemy_cubrid.STRING` / `sqlalchemy.Text` | `str` | Equivalent to very large `VARCHAR`. |
+| `CLOB` | `sqlalchemy_cubrid.CLOB` / `sqlalchemy.Text` | `str` | Character LOB; large text payloads. |
+| `BLOB` | `sqlalchemy_cubrid.BLOB` / `sqlalchemy.LargeBinary` | `bytes` | Binary LOB storage. |
+| `SET(...)` | `sqlalchemy_cubrid.SET` | Driver-dependent collection payload | CUBRID-specific collection; unique unordered members. |
+| `MULTISET(...)` | `sqlalchemy_cubrid.MULTISET` | Driver-dependent collection payload | CUBRID-specific collection; duplicates allowed. |
+| `SEQUENCE(...)` | `sqlalchemy_cubrid.SEQUENCE` | Driver-dependent collection payload | CUBRID-specific collection; ordered with duplicates. |
+| `OBJECT` | `sqlalchemy_cubrid.OBJECT` | Driver-dependent object reference | OID reference type; database-specific. |
+| `BOOLEAN` (emulated) | `sqlalchemy.Boolean` -> `SMALLINT` | `bool` | Stored as `1` / `0`; `supports_native_boolean=False`. |
+
+### Type Resolution Flow
+
+```mermaid
+flowchart LR
+    cubrid[CUBRID SQL type name] --> ischema[Dialect ischema_names lookup]
+    ischema --> satype[SQLAlchemy TypeEngine instance]
+    satype --> bind[DBAPI bind/result processors]
+    bind --> pyval[Python runtime value]
+```
+
+!!! warning "Precision and rounding"
+    Use `NUMERIC`/`DECIMAL` for financial values. `FLOAT`/`DOUBLE` are approximate and can introduce rounding error in aggregates.
+
+!!! warning "Character set and national string columns"
+    `NCHAR`/`NVARCHAR` use national character semantics. Keep application encoding and database collation aligned to avoid unexpected comparisons/sorting.
+
+!!! warning "LOB and collection payload shape can differ by driver"
+    `CUBRIDdb` and `pycubrid` can expose `BLOB`/`CLOB` and collection values differently.
+    Validate payload type (`str`, `bytes`, mapping-like metadata) in integration tests for your chosen driver.
+
+---
+
+*See also: [Feature Support](FEATURE_SUPPORT.md) · [DML Extensions](DML_EXTENSIONS.md) · [Connection Setup](CONNECTION.md)*
+
+---
+
+# Isolation Levels
+
+CUBRID provides six isolation levels — more than the SQL standard's four. This document explains each level, how to configure them, and how they compare to other databases.
+
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Isolation Level Details](#isolation-level-details)
+- [Configuration](#configuration)
+  - [Engine-Level (Default for All Connections)](#engine-level-default-for-all-connections)
+  - [Connection-Level (Per Connection)](#connection-level-per-connection)
+  - [Execution Options (Per Statement Block)](#execution-options-per-statement-block)
+- [CUBRID's Dual-Granularity Model](#cubrids-dual-granularity-model)
+- [Accepted Level Names](#accepted-level-names)
+- [Comparison with SQL Standard](#comparison-with-sql-standard)
+- [How the Dialect Manages Isolation](#how-the-dialect-manages-isolation)
+- [Best Practices](#best-practices)
+
+---
+
+## Overview
+
+| Level | Numeric | Name (Short)                   | Name (Full)                                                   |
+|-------|---------|-------------------------------|---------------------------------------------------------------|
+| 6     | 6       | `SERIALIZABLE`                | Serializable                                                  |
+| 5     | 5       | `REPEATABLE READ`             | Repeatable Read Schema, Repeatable Read Instances              |
+| 4     | 4       | `READ COMMITTED` *(default)*  | Repeatable Read Schema, Read Committed Instances               |
+| 3     | 3       | —                             | Repeatable Read Schema, Read Uncommitted Instances             |
+| 2     | 2       | —                             | Read Committed Schema, Read Committed Instances                |
+| 1     | 1       | —                             | Read Committed Schema, Read Uncommitted Instances              |
+
+The CUBRID server default is **level 4** (`READ COMMITTED`).
+
+---
+
+## Isolation Level Details
+
+### Level 6 — SERIALIZABLE
+
+The strictest isolation level. Transactions are fully serialized: no dirty reads, no non-repeatable reads, no phantom reads.
+
+**Use when**: Absolute consistency is required (e.g., financial transactions, audit logs).
+
+**Trade-off**: Highest lock contention, lowest concurrency.
+
+### Level 5 — REPEATABLE READ
+
+Both schema (class-level) and data (instance-level) reads are repeatable within a transaction. No phantom reads on indexed columns.
+
+**Use when**: You need consistent reads within a transaction but can tolerate slightly lower throughput than serializable.
+
+### Level 4 — READ COMMITTED *(Default)*
+
+Schema reads are repeatable; data reads see only committed values but may see different results on re-read (non-repeatable reads possible).
+
+**Use when**: General-purpose OLTP workloads. The best balance of consistency and performance for most applications.
+
+### Level 3 — REPEATABLE READ Schema, READ UNCOMMITTED Instances
+
+Schema reads are repeatable, but data reads may see uncommitted changes from other transactions (dirty reads possible).
+
+**Use when**: Read-heavy analytics where absolute accuracy is not critical and you want to avoid data-level read locks.
+
+### Level 2 — READ COMMITTED Schema, READ COMMITTED Instances
+
+Both schema and data reads see only committed values, but neither is repeatable. Schema changes from committed transactions are visible immediately.
+
+**Use when**: Applications that don't modify schema during normal operation and can tolerate non-repeatable reads.
+
+### Level 1 — READ COMMITTED Schema, READ UNCOMMITTED Instances
+
+Schema reads see only committed values. Data reads may see uncommitted changes (dirty reads).
+
+**Use when**: Maximum read performance in controlled environments where dirty reads are acceptable. Not recommended for production applications.
+
+---
+
+## Configuration
+
+### Engine-Level (Default for All Connections)
+
+Set the default isolation level when creating the engine:
+
+```python
+from sqlalchemy import create_engine
+
+# Use short name
+engine = create_engine(
+    "cubrid://dba@localhost:33000/testdb",
+    isolation_level="REPEATABLE READ",
+)
+
+# Use full CUBRID name
+engine = create_engine(
+    "cubrid://dba@localhost:33000/testdb",
+    isolation_level="REPEATABLE READ SCHEMA, REPEATABLE READ INSTANCES",
+)
+```
+
+### Connection-Level (Per Connection)
+
+Set isolation level on a specific connection:
+
+```python
+from sqlalchemy import text
+
+with engine.connect().execution_options(
+    isolation_level="SERIALIZABLE"
+) as conn:
+    result = conn.execute(text("SELECT * FROM accounts WHERE id = :id"), {"id": 1})
+    # This connection uses SERIALIZABLE isolation
+```
+
+### Execution Options (Per Statement Block)
+
+```python
+with engine.begin() as conn:
+    # Switch isolation for this block
+    conn = conn.execution_options(isolation_level="SERIALIZABLE")
+    conn.execute(text("UPDATE accounts SET balance = balance - 100 WHERE id = 1"))
+    conn.execute(text("UPDATE accounts SET balance = balance + 100 WHERE id = 2"))
+    # Commits at end of block
+```
+
+---
+
+## CUBRID's Dual-Granularity Model
+
+Unlike most databases, CUBRID separates isolation into two dimensions:
+
+- **Class-level** (schema operations): Controls visibility of DDL changes (table creation, column alterations)
+- **Instance-level** (data operations): Controls visibility of DML changes (inserts, updates, deletes)
+
+This is why CUBRID has 6 levels instead of the standard 4. The combinations are:
+
+| Class (Schema)     | Instance (Data)     | Level |
+|--------------------|---------------------|-------|
+| Serializable       | Serializable        | 6     |
+| Repeatable Read    | Repeatable Read     | 5     |
+| Repeatable Read    | Read Committed      | 4     |
+| Repeatable Read    | Read Uncommitted    | 3     |
+| Read Committed     | Read Committed      | 2     |
+| Read Committed     | Read Uncommitted    | 1     |
+
+In practice, most applications use levels 4 (default), 5, or 6.
+
+---
+
+## Accepted Level Names
+
+The dialect accepts multiple name forms for convenience:
+
+| Short Name                                             | Maps To Level |
+|--------------------------------------------------------|---------------|
+| `SERIALIZABLE`                                         | 6             |
+| `REPEATABLE READ`                                      | 5             |
+| `REPEATABLE READ SCHEMA, REPEATABLE READ INSTANCES`    | 5             |
+| `READ COMMITTED`                                       | 4             |
+| `REPEATABLE READ SCHEMA, READ COMMITTED INSTANCES`     | 4             |
+| `CURSOR STABILITY`                                     | 4             |
+| `REPEATABLE READ SCHEMA, READ UNCOMMITTED INSTANCES`   | 3             |
+| `READ COMMITTED SCHEMA, READ COMMITTED INSTANCES`      | 2             |
+| `READ COMMITTED SCHEMA, READ UNCOMMITTED INSTANCES`    | 1             |
+
+Names are **case-insensitive**.
+
+---
+
+## Comparison with SQL Standard
+
+| SQL Standard Level    | CUBRID Equivalent   | Level |
+|-----------------------|---------------------|-------|
+| `READ UNCOMMITTED`    | Level 1 *(closest)* | 1     |
+| `READ COMMITTED`      | Level 4 *(default)* | 4     |
+| `REPEATABLE READ`     | Level 5             | 5     |
+| `SERIALIZABLE`        | Level 6             | 6     |
+
+Levels 2 and 3 are CUBRID-specific and have no direct SQL standard equivalent.
+
+---
+
+## How the Dialect Manages Isolation
+
+### Setting Isolation Level
+
+The dialect uses the `SET TRANSACTION ISOLATION LEVEL` SQL command with CUBRID's numeric level:
+
+```sql
+SET TRANSACTION ISOLATION LEVEL 5
+COMMIT
+```
+
+The `COMMIT` after setting isolation level is required by CUBRID to apply the change.
+
+### Reading Current Level
+
+The dialect reads the current isolation level using CUBRID's proprietary syntax:
+
+```sql
+GET TRANSACTION ISOLATION LEVEL TO X
+SELECT X
+```
+
+The returned numeric value is mapped back to a descriptive string.
+
+### Reset on Connection Return
+
+When a connection is returned to the pool, the dialect resets isolation to level 4 (`READ COMMITTED`) to ensure a clean state for the next checkout.
+
+---
+
+## Best Practices
+
+1. **Use the default (level 4)** unless you have a specific reason to change it.
+   Most web applications work correctly with `READ COMMITTED`.
+
+2. **Use `SERIALIZABLE` sparingly.** It provides the strongest guarantees but can cause significant lock contention under load.
+
+3. **Avoid levels 1 and 3 in production.** Dirty reads (read uncommitted instances) can lead to inconsistent application behavior.
+
+4. **Set isolation at the engine level** for application-wide defaults, and override per-connection only when needed.
+
+5. **Be aware of DDL auto-commit.** CUBRID auto-commits DDL statements regardless of isolation level. This means `CREATE TABLE`, `ALTER TABLE`, etc. are immediately visible to all transactions.
+
+---
+
+## Isolation Behavior Diagram
+
+```mermaid
+flowchart LR
+    l1[Level 1\nRC Schema + RU Instances] --> l2[Level 2\nRC Schema + RC Instances]
+    l2 --> l3[Level 3\nRR Schema + RU Instances]
+    l3 --> l4[Level 4\nRR Schema + RC Instances\nDefault]
+    l4 --> l5[Level 5\nRR Schema + RR Instances]
+    l5 --> l6[Level 6\nSerializable]
+
+    dirty[Dirty read risk] -. highest .-> l1
+    dirty -. reduced .-> l3
+    dirty -. blocked .-> l2
+    dirty -. blocked .-> l4
+    dirty -. blocked .-> l5
+    dirty -. blocked .-> l6
+```
+
+!!! warning "Isolation level changes require COMMIT"
+    CUBRID applies `SET TRANSACTION ISOLATION LEVEL` with a commit boundary.
+    Plan transaction scopes accordingly when switching levels at runtime.
+
+!!! tip "Default level 4 is a balanced baseline"
+    Start with `READ COMMITTED` (level 4), then move to level 5 or 6 only for correctness-critical paths.
+
+---
+
+*See also: [Connection Setup](CONNECTION.md) · [Feature Support](FEATURE_SUPPORT.md)*
+
+---
+
+# Alembic Migration Support
+
+Guide for using [Alembic](https://alembic.sqlalchemy.org/) database migrations with the CUBRID dialect.
+
+---
+
+## Table of Contents
+
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Running Migrations](#running-migrations)
+- [CUBRID-Specific Behavior](#cubrid-specific-behavior)
+- [Limitations & Workarounds](#limitations--workarounds)
+- [Examples](#examples)
+- [Troubleshooting](#troubleshooting)
+
+---
+
+## Installation
+
+Install sqlalchemy-cubrid with the `alembic` extra:
+
+```bash
+pip install sqlalchemy-cubrid[alembic]
+```
+
+This pulls in Alembic ≥ 1.7 as a dependency. The CUBRID Alembic implementation
+(`CubridImpl`) is registered automatically via the `alembic.ddl` entry point —
+no manual configuration is needed.
+
+> **Note**: If you install Alembic separately (`pip install alembic`), it will
+> still auto-discover the CUBRID implementation as long as `sqlalchemy-cubrid`
+> is installed in the same environment.
+
+---
+
+## Configuration
+
+### Initialize Alembic
+
+```bash
+alembic init alembic
+```
+
+This creates an `alembic/` directory and an `alembic.ini` configuration file.
+
+### Set the Database URL
+
+Edit `alembic.ini`:
+
+```ini
+[alembic]
+sqlalchemy.url = cubrid://dba:password@localhost:33000/demodb
+```
+
+Or set it dynamically in `alembic/env.py`:
+
+```python
+from sqlalchemy import create_engine
+
+def run_migrations_online():
+    connectable = create_engine("cubrid://dba:password@localhost:33000/demodb")
+
+    with connectable.connect() as connection:
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+        )
+        with context.begin_transaction():
+            context.run_migrations()
+```
+
+### env.py Setup
+
+The standard Alembic `env.py` works without modification. The `CubridImpl`
+class is auto-discovered when the connection URL uses the `cubrid://` scheme.
+
+A minimal `env.py` for online migrations:
+
+```python
+from logging.config import fileConfig
+from alembic import context
+from sqlalchemy import engine_from_config, pool
+
+# Import your models' metadata
+from myapp.models import Base
+
+config = context.config
+fileConfig(config.config_file_name)
+target_metadata = Base.metadata
+
+
+def run_migrations_online():
+    connectable = engine_from_config(
+        config.get_section(config.config_ini_section),
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
+    with connectable.connect() as connection:
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+        )
+        with context.begin_transaction():
+            context.run_migrations()
+
+
+run_migrations_online()
+```
+
+---
+
+## Running Migrations
+
+### Create a Migration
+
+```bash
+# Auto-generate from model changes
+alembic revision --autogenerate -m "add users table"
+
+# Create an empty migration
+alembic revision -m "custom migration"
+```
+
+### Apply Migrations
+
+```bash
+# Upgrade to the latest version
+alembic upgrade head
+
+# Upgrade to a specific revision
+alembic upgrade abc123
+
+# Downgrade one step
+alembic downgrade -1
+
+# Show current revision
+alembic current
+
+# Show migration history
+alembic history --verbose
+```
+
+---
+
+## CUBRID-Specific Behavior
+
+### DDL Auto-Commit
+
+CUBRID implicitly commits every DDL statement. The `CubridImpl` sets
+`transactional_ddl = False`, which tells Alembic:
+
+- **No transaction wrapping** around DDL statements
+- Each `CREATE TABLE`, `ALTER TABLE`, `DROP TABLE` commits immediately
+- A failed migration may leave the database in a partially-migrated state
+
+**Implication**: If a migration with multiple DDL operations fails halfway
+through, you cannot simply roll back — the earlier operations have already
+been committed. Write migrations with small, atomic steps.
+
+### Auto-Discovery
+
+The dialect registers `CubridImpl` via the `alembic.ddl` entry point in
+`pyproject.toml`:
+
+```toml
+[project.entry-points."alembic.ddl"]
+cubrid = "sqlalchemy_cubrid.alembic_impl:CubridImpl"
+```
+
+When Alembic detects a `cubrid://` connection URL, it automatically loads
+`CubridImpl`. No imports or configuration are required in your migration files.
+
+### Implementation Details
+
+```python
+class CubridImpl(DefaultImpl):
+    __dialect__ = "cubrid"
+    transactional_ddl = False
+```
+
+The implementation inherits all standard Alembic operations from `DefaultImpl`:
+- `add_column`, `drop_column`
+- `add_constraint`, `drop_constraint`
+- `create_table`, `drop_table`
+- `create_index`, `drop_index`
+- `alter_column` (with limitations — see below)
+- `bulk_insert`
+
+---
+
+## Limitations & Workarounds
+
+### ❌ No ALTER COLUMN TYPE
+
+CUBRID does not support changing a column's data type:
+
+```sql
+-- This will FAIL:
+ALTER TABLE users MODIFY COLUMN name BIGINT;
+```
+
+**In Alembic**, `alter_column(type_=...)` will raise an error.
+
+**Workaround** — use `batch_alter_table` (table recreate):
+
+```python
+def upgrade():
+    with op.batch_alter_table("users") as batch_op:
+        batch_op.alter_column("name", type_=sa.BigInteger())
+```
+
+This creates a new table with the desired schema, copies data, drops the
+original, and renames the new table.
+
+### ❌ No RENAME COLUMN
+
+CUBRID ≤ 11.x does not support renaming columns:
+
+```sql
+-- This will FAIL:
+ALTER TABLE users RENAME COLUMN old_name TO new_name;
+```
+
+**In Alembic**, `alter_column(new_column_name=...)` will raise an error.
+
+**Workaround** — use `batch_alter_table`:
+
+```python
+def upgrade():
+    with op.batch_alter_table("users") as batch_op:
+        batch_op.alter_column("old_name", new_column_name="new_name")
+```
+
+### ⚠️ DDL Auto-Commit
+
+As noted above, DDL is auto-committed. Be aware:
+
+- Keep migrations small (one logical change per migration)
+- Test migrations against a staging database before production
+- Maintain database backups before running migrations
+
+### Summary
+
+| Operation | Supported | Workaround |
+|---|:---:|---|
+| `create_table` | ✅ | — |
+| `drop_table` | ✅ | — |
+| `add_column` | ✅ | — |
+| `drop_column` | ✅ | — |
+| `alter_column` (nullable) | ✅ | — |
+| `alter_column` (default) | ✅ | — |
+| `alter_column` (type) | ❌ | `batch_alter_table` |
+| `alter_column` (rename) | ❌ | `batch_alter_table` |
+| `create_index` | ✅ | — |
+| `drop_index` | ✅ | — |
+| `add_constraint` | ✅ | — |
+| `drop_constraint` | ✅ | — |
+| `bulk_insert` | ✅ | — |
+| Transactional DDL | ❌ | Small atomic migrations |
+
+---
+
+## Examples
+
+### Create a Table
+
+```python
+"""create users table
+
+Revision ID: 001
+"""
+from alembic import op
+import sqlalchemy as sa
+
+
+def upgrade():
+    op.create_table(
+        "users",
+        sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
+        sa.Column("name", sa.String(100), nullable=False),
+        sa.Column("email", sa.String(200), unique=True),
+        sa.Column("created_at", sa.DateTime(), server_default=sa.text("CURRENT_TIMESTAMP")),
+    )
+    op.create_index("ix_users_email", "users", ["email"])
+
+
+def downgrade():
+    op.drop_index("ix_users_email", table_name="users")
+    op.drop_table("users")
+```
+
+### Add a Column
+
+```python
+def upgrade():
+    op.add_column("users", sa.Column("is_active", sa.SmallInteger(), server_default="1"))
+
+
+def downgrade():
+    op.drop_column("users", "is_active")
+```
+
+### Change Column Type (via batch)
+
+```python
+def upgrade():
+    with op.batch_alter_table("users") as batch_op:
+        batch_op.alter_column("name", type_=sa.String(500))
+
+
+def downgrade():
+    with op.batch_alter_table("users") as batch_op:
+        batch_op.alter_column("name", type_=sa.String(100))
+```
+
+### Rename Column (via batch)
+
+```python
+def upgrade():
+    with op.batch_alter_table("users") as batch_op:
+        batch_op.alter_column("name", new_column_name="full_name")
+
+
+def downgrade():
+    with op.batch_alter_table("users") as batch_op:
+        batch_op.alter_column("full_name", new_column_name="name")
+```
+
+---
+
+## Troubleshooting
+
+### "No implementation found for dialect 'cubrid'"
+
+**Cause**: `sqlalchemy-cubrid` is not installed, or not installed with the
+`alembic` extra.
+
+**Fix**:
+
+```bash
+pip install sqlalchemy-cubrid[alembic]
+```
+
+### "Alembic is required for migration support"
+
+**Cause**: The `alembic_impl` module was imported directly without Alembic
+installed.
+
+**Fix**:
+
+```bash
+pip install alembic>=1.7
+```
+
+### Migration partially applied
+
+**Cause**: A migration with multiple DDL statements failed partway through.
+Because CUBRID auto-commits DDL, some statements already took effect.
+
+**Fix**:
+1. Manually inspect the database state
+2. Either complete the remaining operations manually, or reverse the
+   completed ones
+3. Stamp the revision to the correct state: `alembic stamp <revision>`
+
+### `alter_column` raises NotImplementedError
+
+**Cause**: Attempting to change column type or rename column directly.
+
+**Fix**: Use `batch_alter_table` — see [Limitations & Workarounds](#limitations--workarounds).
+
+---
+
+## Migration Safety Checklist
+
+!!! warning "DDL is not transactional"
+    CUBRID auto-commits DDL. A failed migration can leave partial schema changes applied.
+    Prefer small revisions with one logical schema change each.
+
+!!! warning "Type changes and rename require batch operations"
+    Direct `alter_column(type_=...)` and `alter_column(new_column_name=...)` are not portable for CUBRID.
+    Use `op.batch_alter_table()` with tested downgrade steps.
+
+!!! tip "Always test upgrade + downgrade on staging"
+    Validate full forward and backward migration chains before production rollout.
+
+!!! tip "Create backups for destructive operations"
+    Back up data before `drop_column`, `drop_table`, or multi-step restructuring migrations.
+
+Recommended pre-deploy sequence:
+
+1. `alembic upgrade head` on a staging copy.
+2. Run smoke tests and critical queries.
+3. `alembic downgrade -1` and `alembic upgrade head` to verify reversibility.
+4. Deploy during a maintenance window for high-impact schema changes.
+
+---
+
+*See also: [Connection Guide](CONNECTION.md) · [Type Mapping](TYPES.md) · [Feature Support](FEATURE_SUPPORT.md)*
+
+---
+
+# Feature Support Comparison
+
+A comprehensive comparison of **sqlalchemy-cubrid** capabilities against the mature SQLAlchemy dialects for MySQL, PostgreSQL, and SQLite.
+
+Use this document to understand what the CUBRID dialect supports, what it doesn't, and how it compares to other database backends when choosing a dialect for your project.
+
+---
+
+## Table of Contents
+
+- [Legend](#legend)
+- [Summary](#summary)
+- [DML — Data Manipulation Language](#dml--data-manipulation-language)
+- [DDL — Data Definition Language](#ddl--data-definition-language)
+- [Query Features](#query-features)
+- [Type System](#type-system)
+- [Schema Reflection](#schema-reflection)
+- [Transactions & Connections](#transactions--connections)
+- [Dialect Engine Features](#dialect-engine-features)
+- [CUBRID-Specific Features](#cubrid-specific-features)
+- [CUBRID-Specific DML Constructs](#cubrid-specific-dml-constructs)
+- [Index Hints](#index-hints)
+- [Known Limitations & Roadmap](#known-limitations--roadmap)
+
+---
+
+## Legend
+
+| Symbol | Meaning |
+|--------|---------|
+| ✅ | Fully supported |
+| ⚠️ | Partial or emulated support |
+| ❌ | Not supported |
+
+---
+
+## Summary
+
+High-level overview by feature category.
+
+| Category | CUBRID | MySQL | PostgreSQL | SQLite |
+|----------|--------|-------|------------|--------|
+| DML | ✅ | ✅ | ✅ | ⚠️ |
+| DDL | ✅ | ✅ | ✅ | ⚠️ |
+| Query features | ✅ | ✅ | ✅ | ✅ |
+| Type system | ⚠️ | ✅ | ✅ | ⚠️ |
+| Schema reflection | ✅ | ✅ | ✅ | ⚠️ |
+| Transactions | ✅ | ✅ | ✅ | ⚠️ |
+| Engine features | ⚠️ | ✅ | ✅ | ⚠️ |
+
+---
+
+## DML — Data Manipulation Language
+
+| Feature | CUBRID | MySQL | PostgreSQL | SQLite |
+|---------|--------|-------|------------|--------|
+| INSERT … RETURNING | ❌ | ❌ | ✅ | ✅ |
+| UPDATE … RETURNING | ❌ | ❌ | ✅ | ✅ |
+| DELETE … RETURNING | ❌ | ❌ | ✅ | ✅ |
+| INSERT … DEFAULT VALUES | ✅ | ❌ | ✅ | ✅ |
+| Empty INSERT | ✅ | ⚠️ | ✅ | ✅ |
+| Multi-row INSERT | ✅ | ✅ | ✅ | ✅ |
+| INSERT FROM SELECT | ✅ | ✅ | ✅ | ✅ |
+| ON DUPLICATE KEY UPDATE | ✅ | ✅ | ❌ | ❌ |
+| MERGE statement | ✅ | ❌ | ❌ | ❌ |
+| REPLACE INTO | ✅ | ✅ | ❌ | ✅ |
+| FOR UPDATE (row locking) | ✅ | ✅ | ✅ | ❌ |
+| UPDATE with LIMIT | ✅ | ✅ | ❌ | ❌ |
+| TRUNCATE TABLE | ✅ | ✅ | ✅ | ❌ |
+| IS DISTINCT FROM | ❌ | ❌ | ✅ | ❌ |
+| Postfetch LASTROWID | ❌ | ✅ | ❌ | ✅ |
+
+### Notes
+
+- **RETURNING**: CUBRID has no `RETURNING` clause. Auto-generated keys cannot be fetched in the same round-trip as the INSERT; `postfetch_lastrowid` is also unavailable.
+- **DEFAULT VALUES**: CUBRID supports `INSERT INTO t DEFAULT VALUES`. The dialect sets `supports_default_values = True`.
+- **ON DUPLICATE KEY UPDATE**: CUBRID supports `INSERT … ON DUPLICATE KEY UPDATE` with `VALUES()` references (identical to MySQL pre-8.0 syntax). Use `sqlalchemy_cubrid.insert(table).on_duplicate_key_update(col=value)`. See [CUBRID-Specific DML Constructs](#cubrid-specific-dml-constructs) for usage examples.
+- **MERGE**: CUBRID supports the full SQL MERGE statement. Use `sqlalchemy_cubrid.dml.merge(target)` with `.using()`, `.on()`, `.when_matched_then_update()`, and `.when_not_matched_then_insert()`. See [CUBRID-Specific DML Constructs](#cubrid-specific-dml-constructs).
+- **FOR UPDATE**: CUBRID supports `SELECT … FOR UPDATE [OF col1, col2]`. NOWAIT and SKIP LOCKED are not supported.
+- **UPDATE with LIMIT**: CUBRID and MySQL both support `UPDATE … LIMIT n`. PostgreSQL and SQLite do not.
+- **TRUNCATE**: CUBRID supports `TRUNCATE TABLE`. The dialect includes `TRUNCATE` in autocommit detection.
+- **IS DISTINCT FROM**: Not a CUBRID SQL operator. SQLAlchemy may emulate it with `CASE` expressions on dialects that lack native support.
+
+---
+
+## DDL — Data Definition Language
+
+| Feature | CUBRID | MySQL | PostgreSQL | SQLite |
+|---------|--------|-------|------------|--------|
+| ALTER TABLE | ✅ | ✅ | ✅ | ⚠️ |
+| Table comments | ✅ | ✅ | ✅ | ❌ |
+| Column comments | ✅ | ✅ | ✅ | ❌ |
+| CREATE … IF NOT EXISTS | ✅ | ✅ | ✅ | ✅ |
+| DROP … IF EXISTS | ✅ | ✅ | ✅ | ✅ |
+| Temporary tables | ❌ | ✅ | ✅ | ✅ |
+| Multiple schemas | ❌ | ✅ | ✅ | ⚠️ |
+
+### Notes
+
+- **ALTER TABLE**: CUBRID supports standard `ALTER TABLE` for adding/dropping columns and constraints. SQLite has limited ALTER support (add column only; no drop/rename column before 3.35).
+- **Comments**: CUBRID supports inline `COMMENT` syntax for both tables (e.g., `CREATE TABLE t (...) COMMENT = 'text'`) and columns (e.g., `col TYPE COMMENT 'text'`). The dialect implements `SetTableComment`, `DropTableComment`, and `SetColumnComment` DDL constructs. Comment reflection is supported via `get_table_comment()` and column comments in `get_columns()`.
+- **IF NOT EXISTS / IF EXISTS**: CUBRID supports `CREATE TABLE IF NOT EXISTS` and `DROP TABLE IF EXISTS`. The base SA compiler handles these natively.
+- **Temporary tables**: CUBRID does not support `CREATE TEMPORARY TABLE` or session-scoped tables.
+- **Multiple schemas**: CUBRID operates in a single-schema model. MySQL uses databases as schemas. SQLite can attach databases but does not have true schema support.
+
+---
+
+## Query Features
+
+| Feature | CUBRID | MySQL | PostgreSQL | SQLite |
+|---------|--------|-------|------------|--------|
+| Common Table Expressions (WITH) | ✅ | ✅ | ✅ | ✅ |
+| Recursive CTEs (WITH RECURSIVE) | ✅ | ✅ | ✅ | ✅ |
+| CTEs on DML | ❌ | ❌ | ✅ | ❌ |
+| Window functions | ✅ | ✅ | ✅ | ✅ |
+| NULLS FIRST / NULLS LAST | ✅ | ❌ | ✅ | ✅ |
+| GROUP_CONCAT | ✅ | ✅ | ❌ | ✅ |
+| INTERSECT | ✅ | ✅ | ✅ | ✅ |
+| EXCEPT | ✅ | ✅ | ✅ | ✅ |
+| DISTINCT | ✅ | ✅ | ✅ | ✅ |
+| LIMIT / OFFSET | ✅ | ✅ | ✅ | ✅ |
+| Lateral joins | ❌ | ❌ | ✅ | ❌ |
+| Full-text search (MATCH … AGAINST) | ❌ | ✅ | ✅ | ✅ |
+| Query trace / EXPLAIN | ⚠️ | ✅ | ✅ | ✅ |
+### Notes
+
+- **CTEs**: CUBRID 11.0+ supports `WITH` clauses for read queries. Writable CTEs (`WITH … INSERT/UPDATE/DELETE`) are not supported.
+- **Recursive CTEs**: CUBRID 11.x+ supports `WITH RECURSIVE` for recursive queries. SQLAlchemy's base compiler generates correct syntax — no dialect-specific compilation needed.
+- **Window functions**: CUBRID supports `ROW_NUMBER()`, `RANK()`, `DENSE_RANK()`, and other window functions with `OVER(PARTITION BY … ORDER BY …)`. The SA base compiler handles these natively.
+- **NULLS FIRST / NULLS LAST**: CUBRID supports `ORDER BY col ASC NULLS FIRST` and `ORDER BY col DESC NULLS LAST`. The SA base compiler handles these natively.
+- **GROUP_CONCAT**: CUBRID supports `GROUP_CONCAT([DISTINCT] expr [ORDER BY …] [SEPARATOR '…'])`. Use `sa.func.group_concat(column)`.
+- **LIMIT / OFFSET**: CUBRID uses MySQL-style `LIMIT [offset,] count` syntax. When only an offset is given, the dialect emits `LIMIT offset, 1073741823` (max int) as a workaround.
+- **Lateral joins**: CUBRID does not support `LATERAL` subqueries. The `LATERAL` keyword causes a syntax error.
+- **Full-text search**: CUBRID does not support `MATCH … AGAINST` syntax or full-text indexes.
+- **Query trace**: CUBRID uses `SET TRACE ON` / `SHOW TRACE` instead of standard `EXPLAIN`. The dialect provides `trace_query()` as a utility function — see [CUBRID-Specific DML Constructs](#cubrid-specific-dml-constructs).
+
+---
+
+## Type System
+
+### Standard SQL Types
+
+| Type | CUBRID | MySQL | PostgreSQL | SQLite |
+|------|--------|-------|------------|--------|
+| SMALLINT | ✅ | ✅ | ✅ | ✅ |
+| INTEGER | ✅ | ✅ | ✅ | ✅ |
+| BIGINT | ✅ | ✅ | ✅ | ✅ |
+| NUMERIC / DECIMAL | ✅ | ✅ | ✅ | ✅ |
+| FLOAT | ✅ | ✅ | ✅ | ✅ |
+| DOUBLE / REAL | ✅ | ✅ | ✅ | ✅ |
+| BOOLEAN | ⚠️ | ⚠️ | ✅ | ⚠️ |
+| DATE | ✅ | ✅ | ✅ | ✅ |
+| TIME | ✅ | ✅ | ✅ | ✅ |
+| DATETIME | ✅ | ✅ | ✅ | ✅ |
+| TIMESTAMP | ✅ | ✅ | ✅ | ✅ |
+| CHAR | ✅ | ✅ | ✅ | ✅ |
+| VARCHAR | ✅ | ✅ | ✅ | ✅ |
+| NCHAR / NVARCHAR | ✅ | ⚠️ | ❌ | ❌ |
+| TEXT | ✅ | ✅ | ✅ | ✅ |
+| BLOB | ✅ | ✅ | ✅ | ✅ |
+| CLOB | ✅ | ✅ | ✅ | ✅ |
+| BIT / BIT VARYING | ✅ | ✅ | ✅ | ❌ |
+
+### Extended Types
+
+| Type | CUBRID | MySQL | PostgreSQL | SQLite |
+|------|--------|-------|------------|--------|
+| ENUM | ❌ | ✅ | ✅ | ❌ |
+| JSON | ❌ | ✅ | ✅ | ⚠️ |
+| ARRAY | ❌ | ❌ | ✅ | ❌ |
+| UUID | ❌ | ❌ | ✅ | ❌ |
+| INTERVAL | ❌ | ❌ | ✅ | ❌ |
+| HSTORE | ❌ | ❌ | ✅ | ❌ |
+
+### Notes
+
+- **BOOLEAN**: CUBRID maps `BOOLEAN` to `SMALLINT`. MySQL maps it to `TINYINT(1)`. SQLite stores booleans as integers. Only PostgreSQL has a native `BOOLEAN` type.
+- **NCHAR / NVARCHAR**: CUBRID has first-class national character types. MySQL handles national characters via column charset. PostgreSQL and SQLite have no separate national character types.
+- **JSON**: CUBRID does not have a JSON data type or JSON functions. MySQL (5.7+) and PostgreSQL have native JSON support. SQLite has JSON functions but no dedicated column type.
+- **ARRAY**: CUBRID uses collection types (`SET`, `MULTISET`, `SEQUENCE`) which serve a similar purpose but are not SQL-standard arrays. PostgreSQL has native `ARRAY[]` support.
+- **CLOB**: CUBRID and MySQL have explicit `CLOB` types. PostgreSQL uses `TEXT` (unlimited length). SQLite stores all text as `TEXT`.
+
+---
+
+## Schema Reflection
+
+| Feature | CUBRID | MySQL | PostgreSQL | SQLite |
+|---------|--------|-------|------------|--------|
+| Table names | ✅ | ✅ | ✅ | ✅ |
+| Column information | ✅ | ✅ | ✅ | ✅ |
+| Primary keys | ✅ | ✅ | ✅ | ✅ |
+| Foreign keys | ✅ | ✅ | ✅ | ✅ |
+| Indexes | ✅ | ✅ | ✅ | ✅ |
+| Unique constraints | ✅ | ✅ | ✅ | ✅ |
+| Check constraints | ❌ | ✅ | ✅ | ❌ |
+| Table comments | ✅ | ✅ | ✅ | ❌ |
+| Column comments | ✅ | ✅ | ✅ | ❌ |
+| View names | ✅ | ✅ | ✅ | ✅ |
+| View definitions | ✅ | ✅ | ✅ | ✅ |
+| Schema names | ❌ | ✅ | ✅ | ❌ |
+| Sequences | ❌ | ❌ | ✅ | ❌ |
+| `has_table` | ✅ | ✅ | ✅ | ✅ |
+| `has_index` | ✅ | ❌ | ✅ | ✅ |
+| `has_sequence` | ❌ | ❌ | ✅ | ❌ |
+
+### Notes
+
+- **Check constraints**: CUBRID parses check constraints but ignores them at runtime (officially documented behavior). The `get_check_constraints()` method returns an empty list.
+- **Table comments**: Reflected via `get_table_comment()` querying the `db_class.comment` system catalog column.
+- **Column comments**: Reflected via `get_columns()` querying the `_db_attribute.comment` system catalog column. Returned in the `"comment"` key of each column dict.
+- **has_index**: The CUBRID dialect implements `has_index()` by querying `db_index`. The MySQL SA dialect does not provide a dedicated `has_index()` method.
+- **Reflection source**: CUBRID reflection queries the system catalog tables (`db_class`, `db_attribute`, `db_index`, `db_constraint`, `_db_index`, `_db_attribute`) rather than `INFORMATION_SCHEMA`.
+
+---
+
+## Transactions & Connections
+
+| Feature | CUBRID | MySQL | PostgreSQL | SQLite |
+|---------|--------|-------|------------|--------|
+| Isolation level management | ✅ | ✅ | ✅ | ✅ |
+| Savepoints | ✅ | ✅ | ✅ | ✅ |
+| Two-phase commit | ❌ | ✅ | ✅ | ❌ |
+| Server-side cursors | ❌ | ✅ | ✅ | ❌ |
+| Autocommit detection | ✅ | ✅ | ✅ | ✅ |
+| Connection-level encoding | ❌ | ✅ | ✅ | ❌ |
+
+### CUBRID Isolation Levels
+
+CUBRID supports six isolation levels — more than the SQL standard's four:
+
+| Level | Description |
+|-------|-------------|
+| `SERIALIZABLE` | Full serialization |
+| `REPEATABLE READ CLASS, REPEATABLE READ INSTANCES` | Repeatable read for both schema and data |
+| `REPEATABLE READ CLASS, READ COMMITTED INSTANCES` | Repeatable read for schema, read committed for data |
+| `REPEATABLE READ CLASS, READ UNCOMMITTED INSTANCES` | Repeatable read for schema, read uncommitted for data |
+| `READ COMMITTED CLASS, READ COMMITTED INSTANCES` | Read committed for both |
+| `READ COMMITTED CLASS, READ UNCOMMITTED INSTANCES` | Read committed for schema, read uncommitted for data |
+
+### Notes
+
+- **Two-phase commit**: CUBRID does not support distributed transactions via `XA`.
+- **Server-side cursors**: The CUBRID Python driver does not expose server-side cursor functionality.
+- **Autocommit detection**: The CUBRID execution context uses a regex pattern matching `SET`, `ALTER`, `CREATE`, `DROP`, `GRANT`, `REVOKE`, and `TRUNCATE` statements to determine when to enable autocommit.
+- **Savepoints**: CUBRID supports `SAVEPOINT` and `ROLLBACK TO SAVEPOINT`. `RELEASE SAVEPOINT` is not supported — the dialect implements `do_release_savepoint()` as a no-op.
+
+---
+
+## Dialect Engine Features
+
+| Feature | CUBRID | MySQL | PostgreSQL | SQLite |
+|---------|--------|-------|------------|--------|
+| Statement caching | ✅ | ✅ | ✅ | ✅ |
+| Native enum | ❌ | ✅ | ✅ | ❌ |
+| Native boolean | ❌ | ❌ | ✅ | ❌ |
+| Native decimal | ✅ | ✅ | ✅ | ❌ |
+| Sequences | ❌ | ❌ | ✅ | ❌ |
+| ON UPDATE CASCADE | ✅ | ✅ | ✅ | ✅ |
+| ON DELETE CASCADE | ✅ | ✅ | ✅ | ✅ |
+| Self-referential FKs | ✅ | ✅ | ✅ | ✅ |
+| Independent connections | ✅ | ✅ | ✅ | ✅ |
+| Unicode DDL | ✅ | ✅ | ✅ | ✅ |
+| Name normalization | ✅ | ❌ | ✅ | ❌ |
+
+### Notes
+
+- **Statement caching**: `supports_statement_cache = True`. The dialect is fully compatible with SQLAlchemy 2.0's compiled cache.
+- **Name normalization**: CUBRID folds unquoted identifiers to lowercase. The dialect normalizes identifiers to match Python-side expectations (`requires_name_normalize = True`).
+- **Max identifier length**: CUBRID allows identifiers up to 254 characters — significantly longer than MySQL (64) or PostgreSQL (63).
+
+---
+
+## CUBRID-Specific Features
+
+These types and capabilities are unique to the CUBRID dialect and have no direct equivalent in MySQL, PostgreSQL, or SQLite.
+
+| Feature | Description |
+|---------|-------------|
+| `MONETARY` type | Fixed-point currency type with locale-aware formatting |
+| `STRING` type | Alias for `VARCHAR(1,073,741,823)` — maximum-length variable string |
+| `OBJECT` type | OID reference type pointing to another row by object identifier |
+| `SET` collection | Unordered collection of unique elements |
+| `MULTISET` collection | Unordered collection that allows duplicates |
+| `SEQUENCE` collection | Ordered collection that allows duplicates |
+| 6 isolation levels | Separate class-level and instance-level isolation granularity |
+| 254-char identifiers | Longer than MySQL (64) and PostgreSQL (63) |
+
+### Collection Types
+
+CUBRID's collection types (`SET`, `MULTISET`, `SEQUENCE`) are typed containers that hold elements of a specified data type. They are declared in DDL as:
+
+```
+SET(INTEGER)
+MULTISET(VARCHAR)
+SEQUENCE(DOUBLE)
+```
+
+These are fully supported by the dialect's type compiler and can be used in `Column` definitions.
+
+---
+
+## CUBRID-Specific DML Constructs
+
+The dialect provides custom SQLAlchemy constructs for CUBRID-specific DML features that go beyond the standard SA API.
+
+### ON DUPLICATE KEY UPDATE
+
+CUBRID supports `INSERT … ON DUPLICATE KEY UPDATE` with `VALUES()` references (identical to MySQL pre-8.0 syntax).
+
+```python
+from sqlalchemy_cubrid import insert
+
+stmt = insert(users).values(id=1, name="alice", email="alice@example.com")
+stmt = stmt.on_duplicate_key_update(name="updated_alice")
+# INSERT INTO users (id, name, email) VALUES (1, 'alice', 'alice@example.com')
+# ON DUPLICATE KEY UPDATE name = 'updated_alice'
+
+# Reference the inserted value:
+stmt = insert(users).values(id=1, name="alice", email="alice@example.com")
+stmt = stmt.on_duplicate_key_update(name=stmt.inserted.name)
+# ON DUPLICATE KEY UPDATE name = VALUES(name)
+```
+
+**Accepted argument forms:**
+- Keyword arguments: `stmt.on_duplicate_key_update(name="value")`
+- Dictionary: `stmt.on_duplicate_key_update({"name": "value"})`
+- List of tuples (ordered): `stmt.on_duplicate_key_update([("name", "value"), ("email", "value")])`
+
+### MERGE Statement
+
+CUBRID supports the SQL `MERGE` statement for conditional INSERT/UPDATE in a single operation.
+
+```python
+from sqlalchemy_cubrid.dml import merge
+
+stmt = (
+    merge(target_table)
+    .using(source_table)
+    .on(target_table.c.id == source_table.c.id)
+    .when_matched_then_update(
+        {"name": source_table.c.name, "email": source_table.c.email},
+        where=source_table.c.name.is_not(None),       # optional WHERE
+        delete_where=target_table.c.active == False,   # optional DELETE WHERE
+    )
+    .when_not_matched_then_insert(
+        {
+            "id": source_table.c.id,
+            "name": source_table.c.name,
+            "email": source_table.c.email,
+        },
+        where=source_table.c.name.is_not(None),  # optional WHERE
+    )
+)
+```
+
+**Generated SQL:**
+```sql
+MERGE INTO target_table
+USING source_table
+ON (target_table.id = source_table.id)
+WHEN MATCHED THEN UPDATE SET name = source_table.name, email = source_table.email
+  WHERE source_table.name IS NOT NULL
+  DELETE WHERE target_table.active = 0
+WHEN NOT MATCHED THEN INSERT (id, name, email)
+  VALUES (source_table.id, source_table.name, source_table.email)
+  WHERE source_table.name IS NOT NULL
+```
+
+**Builder methods:**
+- `merge(target)` — factory function, sets target table
+- `.using(source)` — source table or subquery
+- `.on(condition)` — join condition
+- `.when_matched_then_update(values, where=None, delete_where=None)` — UPDATE clause
+- `.when_matched_then_delete(where=None)` — adds DELETE WHERE to an existing WHEN MATCHED clause
+- `.when_not_matched_then_insert(values, where=None)` — INSERT clause
+
+At least one of `when_matched_then_update` or `when_not_matched_then_insert` must be specified.
+
+### GROUP_CONCAT
+
+CUBRID supports `GROUP_CONCAT` as an aggregate function:
+
+```python
+import sqlalchemy as sa
+
+stmt = sa.select(sa.func.group_concat(users.c.name))
+# SELECT GROUP_CONCAT(users.name) FROM users
+```
+
+### REPLACE INTO
+
+CUBRID supports `REPLACE INTO` which inserts a new row, or deletes the conflicting row and inserts the new one if a duplicate key is found.
+
+```python
+from sqlalchemy_cubrid import replace
+
+stmt = replace(users).values(id=1, name="alice", email="alice@example.com")
+# REPLACE INTO users (id, name, email) VALUES (1, 'alice', 'alice@example.com')
+```
+
+The `replace()` construct behaves like `insert()` but generates `REPLACE INTO` instead of `INSERT INTO`.
+
+### Query Trace
+
+CUBRID uses `SET TRACE ON` / `SHOW TRACE` instead of standard `EXPLAIN`. The dialect provides a `trace_query()` utility:
+
+```python
+from sqlalchemy_cubrid import trace_query
+
+with engine.connect() as conn:
+    traces = trace_query(conn, text("SELECT * FROM users WHERE id = 1"))
+    for line in traces:
+        print(line)
+```
+
+`trace_query()` handles the full lifecycle: enables tracing, executes your statement, collects trace output, and disables tracing — all within a safe `try/finally` block.
+---
+
+## Index Hints
+
+CUBRID supports index hints in SELECT queries. These can be used via SQLAlchemy's built-in hint mechanisms — no custom dialect constructs are needed.
+
+### USING INDEX
+
+```python
+# Using Select.with_hint()
+stmt = (
+    sa.select(users)
+    .with_hint(users, "USING INDEX idx_users_name", dialect_name="cubrid")
+)
+
+# Using Select.suffix_with()
+stmt = sa.select(users).suffix_with("USING INDEX idx_users_name")
+```
+
+### USE INDEX / FORCE INDEX / IGNORE INDEX
+
+```python
+stmt = (
+    sa.select(users)
+    .with_hint(users, "USE INDEX (idx_users_name)", dialect_name="cubrid")
+)
+
+stmt = (
+    sa.select(users)
+    .with_hint(users, "FORCE INDEX (idx_users_email)", dialect_name="cubrid")
+)
+
+stmt = (
+    sa.select(users)
+    .with_hint(users, "IGNORE INDEX (idx_users_old)", dialect_name="cubrid")
+)
+```
+
+> **Note**: When using `with_hint(dialect_name="cubrid")`, the hint is only emitted when compiling against the CUBRID dialect. Other dialects will ignore it, making your code safely portable.
+
+---
+
+## Known Limitations & Roadmap
+
+Features not currently supported that may be added in future releases, depending on CUBRID database evolution and community contributions.
+
+| Feature | Status | Reason |
+|---------|--------|--------|
+| RETURNING clause | ❌ | CUBRID does not support `INSERT/UPDATE/DELETE … RETURNING` |
+| Postfetch LASTROWID | ❌ | CUBRID Python driver limitation |
+| JSON type | ❌ | CUBRID does not have a JSON data type |
+| Temporary tables | ❌ | CUBRID does not support `CREATE TEMPORARY TABLE` |
+| Multiple schemas | ❌ | CUBRID operates in a single-schema model |
+| IS DISTINCT FROM | ❌ | Not a CUBRID SQL operator |
+| Check constraint reflection | ❌ | CUBRID parses but ignores CHECK constraints |
+| Sequences | ❌ | CUBRID uses `AUTO_INCREMENT` instead |
+| Lateral joins | ❌ | `LATERAL` keyword causes syntax error in CUBRID |
+| Full-text search | ❌ | No `MATCH … AGAINST` syntax or full-text indexes |
+| Standard EXPLAIN | ❌ | CUBRID uses `SET TRACE ON` / `SHOW TRACE` instead (supported via `trace_query()`) |
+| Alembic migrations | ✅ | Supported via `CubridImpl` entry-point (`pip install sqlalchemy-cubrid[alembic]`) |
+
+---
+
+*Last updated: March 2026 · sqlalchemy-cubrid v0.7.1 · SQLAlchemy 2.0+*
+
+---
+
+# Support Matrix
+
+Compatibility and feature support for sqlalchemy-cubrid releases.
+
+---
+
+## Version Compatibility
+
+### SQLAlchemy
+
+| SQLAlchemy Version | Status | Notes |
+|---|---|---|
+| 2.0.x | ✅ Supported | Minimum required version |
+| 2.1.x | ✅ Supported | Latest tested |
+| ≥ 2.2 | ❌ Not supported | Code uses private SA internals (see below) |
+| < 2.0 | ❌ Not supported | SA 1.x API removed |
+
+**Why `<2.2`?** The dialect accesses private SQLAlchemy APIs that may change without notice:
+
+| Private API | Location | Usage |
+|---|---|---|
+| `select._limit_clause` | `compiler.py:81` | LIMIT clause compilation |
+| `select._offset_clause` | `compiler.py:82` | OFFSET clause compilation |
+| `select._for_update_arg` | `compiler.py:71` | FOR UPDATE clause |
+| `coercions._is_literal` | `compiler.py:144` | Literal value detection |
+| `BindParameter._with_binary_element_type` | `compiler.py:150-151` | Binary parameter handling |
+
+These will be migrated to public APIs when SA 2.2 is released.
+
+### Python
+
+| Python Version | Status |
+|---|---|
+| 3.10 | ✅ Supported |
+| 3.11 | ✅ Supported |
+| 3.12 | ✅ Supported |
+| 3.13 | ✅ Supported |
+| 3.14 | ✅ Supported |
+| < 3.10 | ❌ Not supported |
+
+### CUBRID Server
+
+| CUBRID Version | Status | Notes |
+|---|---|---|
+| 11.4 | ✅ Supported | Latest stable |
+| 11.2 | ✅ Supported | |
+| 11.0 | ✅ Supported | |
+| 10.2 | ✅ Supported | Minimum tested version |
+| < 10.2 | ❌ Not supported | |
+
+### Drivers
+
+| Driver | Install | URL Scheme | Status |
+|---|---|---|---|
+| CUBRID-Python (CCI) | `pip install "sqlalchemy-cubrid[cubrid]"` | `cubrid://` | ✅ Supported |
+| pycubrid (Pure Python) | `pip install "sqlalchemy-cubrid[pycubrid]"` | `cubrid+pycubrid://` | ✅ Supported |
+
+---
+
+## Feature Support
+
+### SQLAlchemy Core
+
+| Feature | Status | Notes |
+|---|---|---|
+| `create_engine()` | ✅ | Both `cubrid://` and `cubrid+pycubrid://` schemes |
+| SQL compilation | ✅ | SELECT, INSERT, UPDATE, DELETE, JOIN, subqueries |
+| DDL compilation | ✅ | CREATE TABLE, ALTER, DROP, AUTO_INCREMENT, COMMENT |
+| Type system | ✅ | All CUBRID types mapped (see below) |
+| Schema reflection | ✅ | Tables, columns, PKs, FKs, indexes, unique constraints, comments |
+| Transaction management | ✅ | commit, rollback, savepoint (no RELEASE SAVEPOINT) |
+| Connection pooling | ✅ | SA pool with `pool_pre_ping`, disconnect detection |
+| Statement caching | ✅ | `supports_statement_cache = True` |
+
+### SQLAlchemy ORM
+
+| Feature | Status | Notes |
+|---|---|---|
+| Declarative models | ✅ | |
+| Relationships | ✅ | |
+| Session / Unit of Work | ✅ | |
+| Query API | ✅ | |
+| Hybrid properties | ✅ | |
+
+### Alembic
+
+| Feature | Status | Notes |
+|---|---|---|
+| Auto-discovery | ✅ | `alembic.ddl` entry point |
+| Schema migrations | ✅ | CREATE, ALTER, DROP |
+| Autogenerate | ✅ | Including collection types (SET, MULTISET, SEQUENCE) |
+| Transactional DDL | ❌ | CUBRID auto-commits DDL |
+
+### DML Extensions
+
+| Feature | Status | Notes |
+|---|---|---|
+| `ON DUPLICATE KEY UPDATE` | ✅ | Via `sqlalchemy_cubrid.insert()` |
+| `MERGE` statement | ✅ | Via `sqlalchemy_cubrid.merge()` |
+| `REPLACE INTO` | ✅ | Via `sqlalchemy_cubrid.replace()` |
+| `GROUP_CONCAT` | ✅ | |
+| `TRUNCATE TABLE` | ✅ | Autocommit detected |
+| `FOR UPDATE` | ✅ | Including `OF` clause |
+| Recursive CTE | ✅ | `WITH RECURSIVE` (CUBRID 11.x+) |
+| Window functions | ✅ | ROW_NUMBER, RANK, LAG, LEAD, etc. |
+| Index hints | ✅ | Via SA `with_hint()` / `suffix_with()` |
+
+### Known Limitations
+
+| Feature | Status | Notes |
+|---|---|---|
+| JSON type | ❌ | CUBRID has JSON since 10.2, but not yet mapped in dialect |
+| Native Enum | ❌ | CUBRID lacks ENUM — use VARCHAR + CHECK constraint |
+| Interval type | ❌ | Not supported by CUBRID |
+| RETURNING clause | ❌ | `INSERT/UPDATE/DELETE ... RETURNING` not supported |
+| BOOLEAN | ⚠️ | Mapped to SMALLINT (0/1) — no native boolean |
+| Sequences | ❌ | CUBRID uses AUTO_INCREMENT only |
+| CHECK constraint reflection | ❌ | `get_check_constraints()` returns empty list |
+| Multi-schema | ❌ | CUBRID has single-schema model |
+| RELEASE SAVEPOINT | ❌ | No-op (CUBRID doesn't support it) |
+| Lateral joins | ❌ | CUBRID lacks LATERAL subquery support |
+| Full-text search | ❌ | No MATCH … AGAINST syntax |
+| Async DBAPI | ❌ | CUBRID drivers have no async support |
+
+---
+
+## Type Mapping
+
+| CUBRID Type | SQLAlchemy Type | Python Type |
+|---|---|---|
+| INTEGER | `sa.Integer` | `int` |
+| BIGINT | `sa.BigInteger` | `int` |
+| SMALLINT | `sa.SmallInteger` | `int` |
+| FLOAT | `sa.Float` | `float` |
+| DOUBLE | `sa.Float` | `float` |
+| NUMERIC / DECIMAL | `sa.Numeric` | `decimal.Decimal` |
+| MONETARY | `MONETARY` | `float` |
+| CHAR | `sa.CHAR` | `str` |
+| VARCHAR | `sa.String` | `str` |
+| NCHAR | `NCHAR` | `str` |
+| NVARCHAR | `NVARCHAR` | `str` |
+| STRING | `STRING` | `str` |
+| DATE | `sa.Date` | `datetime.date` |
+| TIME | `sa.Time` | `datetime.time` |
+| DATETIME | `sa.DateTime` | `datetime.datetime` |
+| TIMESTAMP | `sa.TIMESTAMP` | `datetime.datetime` |
+| BIT | `BIT` | `bytes` |
+| BLOB | `sa.LargeBinary` | `bytes` |
+| CLOB | `CLOB` | `str` |
+| SET | `SET` | Collection |
+| MULTISET | `MULTISET` | Collection |
+| SEQUENCE | `SEQUENCE` | Collection |
+| OBJECT | `OBJECT` | OID reference |
+
+---
+
+## CI Matrix
+
+| Dimension | Values |
+|---|---|
+| Python (offline) | 3.10, 3.11, 3.12, 3.13 |
+| Python (integration) | 3.10, 3.12 |
+| CUBRID (integration) | 10.2, 11.0, 11.2, 11.4 |
+
+## Test Coverage
+
+| Metric | Value |
+|---|---|
+| Offline tests | 426 |
+| Integration tests | 29 |
+| Line coverage | 99.47% |
+| Coverage threshold | 95% (CI-enforced) |
+
+---
+
+*See also: [Connection Guide](CONNECTION.md) · [Type System](TYPES.md) · [Feature Support](FEATURE_SUPPORT.md) · [Driver Compatibility](DRIVER_COMPAT.md)*
+
+---
+
+# Architecture
+
+## Design Objectives
+sqlalchemy-cubrid is designed to provide a robust, modern interface between SQLAlchemy and the CUBRID database. Its core design goals include:
+
+*   Full SQLAlchemy 2.0 dialect implementation
+*   Dual-driver support (C-extension CUBRIDdb + pure Python pycubrid)
+*   Schema reflection (tables, columns, constraints, indexes, comments)
+*   Custom DML extensions (ON DUPLICATE KEY UPDATE, MERGE, REPLACE)
+*   Alembic migration support
+*   PEP 561 typed
+
+## High-Level Flow
+
+### Phase 1: Engine Creation & Connection
+This phase covers how SQLAlchemy discovers the CUBRID dialect and establishes a physical connection to the CUBRID Server.
+
+```mermaid
+sequenceDiagram
+    participant App
+    participant SA as SQLAlchemy
+    participant Registry as Dialect Registry
+    participant Dialect as CubridDialect
+    participant Driver as pycubrid / CUBRIDdb
+    participant DB as CUBRID Server
+
+    App->>SA: create_engine("cubrid+pycubrid://dba@host:33000/testdb")
+    rect rgb(230, 245, 255)
+      note over SA, Registry: Phase 1 — Dialect Discovery
+      SA->>Registry: Lookup "cubrid.pycubrid" entry point
+      Registry-->>SA: PyCubridDialect class
+      SA->>Dialect: Instantiate dialect
+      Dialect->>Driver: import_dbapi() → import pycubrid
+    end
+    
+    App->>SA: engine.connect()
+    rect rgb(230, 255, 230)
+      note over SA, DB: Phase 2 — Physical Connection
+      SA->>Dialect: create_connect_args(url)
+      Dialect-->>SA: (host, port, database, user, password)
+      SA->>Driver: pycubrid.connect(host, port, database, user, password)
+      Driver->>DB: CAS handshake + OpenDatabase
+      DB-->>Driver: Session established
+      Driver-->>SA: Connection object
+      Dialect->>Driver: on_connect() → set autocommit=False
+    end
+    SA-->>App: Connection
+```
+
+### Phase 2: SQL Compilation
+This phase describes the transformation of SQLAlchemy Expression Language constructs into CUBRID-compatible SQL strings and their subsequent execution.
+
+```mermaid
+sequenceDiagram
+    participant App
+    participant SA as SQLAlchemy Core
+    participant Compiler as CubridSQLCompiler
+    participant TypeCompiler as CubridTypeCompiler
+    participant Driver as pycubrid
+    participant CAS as CAS Process
+    
+    App->>SA: conn.execute(select(users).where(users.c.id == 1))
+    rect rgb(255, 245, 230)
+      note over SA, TypeCompiler: SQL Compilation
+      SA->>Compiler: process(select_statement)
+      Compiler->>Compiler: visit_select() → column clause
+      Compiler->>Compiler: limit_clause() → LIMIT/OFFSET (no FETCH FIRST)
+      Compiler->>Compiler: for_update_clause()
+      Compiler->>TypeCompiler: process column types
+      TypeCompiler-->>Compiler: CUBRID SQL type strings
+      Compiler-->>SA: "SELECT users.id, ... FROM users WHERE users.id = ?"
+    end
+    rect rgb(230, 255, 230)
+      note over SA, CAS: Execution
+      SA->>Driver: cursor.execute(sql, params)
+      Driver->>CAS: PrepareAndExecute packet
+      CAS-->>Driver: Result rows
+      Driver-->>SA: DB-API cursor with results
+    end
+    SA-->>App: CursorResult
+```
+
+## Schema Reflection
+The reflection process allows SQLAlchemy to inspect an existing CUBRID database and reconstruct Table objects automatically.
+
+```mermaid
+sequenceDiagram
+    participant App
+    participant SA as SQLAlchemy
+    participant Dialect as CubridDialect
+    participant CAS as CAS Process
+    
+    App->>SA: metadata.reflect(engine)
+    SA->>Dialect: get_table_names(connection)
+    Dialect->>CAS: SHOW TABLES
+    CAS-->>Dialect: Table list
+    
+    loop For each table
+      SA->>Dialect: get_columns(connection, table_name)
+      Dialect->>CAS: SHOW COLUMNS IN "table_name"
+      CAS-->>Dialect: Column definitions
+      
+      SA->>Dialect: get_pk_constraint(connection, table_name)
+      Dialect->>CAS: SHOW INDEX IN "table_name" (filter PRIMARY)
+      CAS-->>Dialect: PK constraint info
+      
+      SA->>Dialect: get_foreign_keys(connection, table_name)
+      Dialect->>CAS: SELECT from db_constraint
+      CAS-->>Dialect: FK constraints
+      
+      SA->>Dialect: get_indexes(connection, table_name)
+      Dialect->>CAS: SHOW INDEX IN "table_name"
+      CAS-->>Dialect: Index definitions
+    end
+    
+    SA-->>App: MetaData with reflected tables
+```
+
+## Module Boundaries
+The package is organized into specialized modules, each handling a specific aspect of the dialect's functionality.
+
+```mermaid
+flowchart TD
+    init["__init__.py<br/>Public API: types, insert(), merge()"]
+    dialect["dialect.py<br/>CubridDialect: reflection, connection, isolation"]
+    pycubrid_d["pycubrid_dialect.py<br/>PyCubridDialect: pure Python variant"]
+    compiler["compiler.py<br/>SQL, DDL, Type compilers"]
+    base["base.py<br/>ExecutionContext, IdentifierPreparer"]
+    dml["dml.py<br/>ODKU, MERGE, REPLACE constructs"]
+    types["types.py<br/>CUBRID type system"]
+    req["requirements.py<br/>SA test requirement flags"]
+    alembic_mod["alembic_impl.py<br/>CubridImpl DDL operations"]
+    
+    init --> types
+    init --> dml
+    dialect --> base
+    dialect --> compiler
+    dialect --> types
+    pycubrid_d --> dialect
+    compiler --> types
+    compiler --> base
+    
+    %% External dependencies
+    sa["SQLAlchemy 2.0"]
+    pycubrid_pkg["pycubrid (driver)"]
+    alembic_pkg["Alembic"]
+    
+    dialect -.-> sa
+    pycubrid_d -.-> pycubrid_pkg
+    compiler -.-> sa
+    alembic_mod -.-> alembic_pkg
+    req -.-> sa
+```
+
+### Module Descriptions
+
+#### `__init__.py`
+Defines the public API boundary, exporting CUBRID-specific types and DML extensions like `insert()`, `merge()`, and `replace()`. It serves as the primary entry point for users of the dialect.
+
+#### `dialect.py`
+Contains the base `CubridDialect` class, implementing core logic for schema reflection, connection management, and transaction isolation levels. It defaults to the C-extension driver `CUBRIDdb`.
+
+#### `pycubrid_dialect.py`
+Implements the `PyCubridDialect` variant, which uses the pure Python `pycubrid` driver. It overrides connection argument parsing and connection-time initialization logic.
+
+#### `compiler.py`
+Houses the SQL, DDL, and Type compilers. It translates SQLAlchemy's abstract syntax trees into CUBRID-specific SQL dialects, handling nuances like LIMIT/OFFSET and FOR UPDATE clauses.
+
+#### `base.py`
+Provides the `CubridExecutionContext` for statement execution state and the `CubridIdentifierPreparer` for handling CUBRID's lowercase identifier folding and quoting rules.
+
+#### `dml.py`
+Defines custom DML constructs for CUBRID-specific features such as `ON DUPLICATE KEY UPDATE` (ODKU), `MERGE INTO`, and `REPLACE INTO`.
+
+#### `types.py`
+Implements the CUBRID-specific type system, mapping SQLAlchemy's generic types to CUBRID's internal types like `SET`, `MULTISET`, and `BIT`.
+
+#### `requirements.py`
+Defines feature flags used by the SQLAlchemy test suite to determine which behavioral tests should be executed against a CUBRID backend.
+
+#### `alembic_impl.py`
+Provides the `CubridImpl` class for Alembic, enabling DDL migration support and defining CUBRID's lack of transactional DDL capabilities.
+
+## Dialect Discovery
+SQLAlchemy uses entry points to discover and load the appropriate dialect class based on the provided connection URL.
+
+```mermaid
+flowchart TD
+    url["Connection URL<br/>cubrid+pycubrid://dba@host:33000/db"]
+    parse["SQLAlchemy URL Parser<br/>backend=cubrid, driver=pycubrid"]
+    entry["Entry Point Lookup<br/>sqlalchemy.dialects → cubrid.pycubrid"]
+    
+    url --> parse
+    parse --> entry
+    
+    entry -->|"cubrid://"| cubrid_dialect["CubridDialect<br/>(C-extension CUBRIDdb)"]
+    entry -->|"cubrid.cubrid://"| cubrid_dialect
+    entry -->|"cubrid+pycubrid://"| pycubrid_dialect["PyCubridDialect<br/>(Pure Python pycubrid)"]
+    
+    cubrid_dialect --> import_c["import CUBRIDdb"]
+    pycubrid_dialect --> import_py["import pycubrid"]
+    
+    alembic_entry["Entry Point: alembic.ddl → cubrid"]
+    alembic_entry --> alembic_impl["CubridImpl<br/>transactional_ddl = False"]
+```
+
+## Two-Driver Architecture
+The dialect supports both the legacy C-extension driver and the modern pure Python driver through a hierarchical class structure.
+
+```mermaid
+flowchart TD
+    sa_default["sqlalchemy.engine.default<br/>DefaultDialect"]
+    cubrid_base["CubridDialect<br/>dialect.py<br/>• reflection<br/>• isolation levels<br/>• type mapping<br/>• import_dbapi() → CUBRIDdb"]
+    pycubrid_variant["PyCubridDialect<br/>pycubrid_dialect.py<br/>• import_dbapi() → pycubrid<br/>• create_connect_args()<br/>• on_connect()<br/>• do_ping()"]
+    
+    sa_default --> cubrid_base
+    cubrid_base --> pycubrid_variant
+    
+    cubrid_base -.->|"loads"| cci["CUBRIDdb<br/>(C-extension driver)"]
+    pycubrid_variant -.->|"loads"| pure["pycubrid<br/>(Pure Python driver)"]
+```
+
+## Key Design Decisions
+
+*   **SQLAlchemy < 2.2 pin**: Uses private SA APIs (`select._limit_clause`, `select._offset_clause`, `select._for_update_arg`, `coercions._is_literal`, `BindParameter._with_binary_element_type`) at compiler.py:71, 81-82, 144, 150-151 — requires version pinning until public alternatives exist.
+*   **BOOLEAN → SMALLINT mapping**: CUBRID has no native BOOLEAN — dialect maps to `SMALLINT` (0/1).
+*   **No JSON type mapping (yet)**: CUBRID 10.2+ supports JSON natively, but the dialect doesn't map it yet — JSON columns can still be used via raw SQL.
+*   **`transactional_ddl = False`**: CUBRID auto-commits DDL statements — Alembic cannot roll back failed migrations.
+*   **`supports_statement_cache = True`**: Required for SA 2.0 performance — dialect is cache-safe.
+*   **Lowercase identifier folding**: CUBRID folds to lowercase (not SQL-standard uppercase) — `CubridIdentifierPreparer` handles this.
+*   **No RELEASE SAVEPOINT**: CUBRID doesn't support it — `do_release_savepoint()` is a no-op.
+
+## Public API Boundary
+
+```python
+# DML Extensions
+insert()    # Insert with .on_duplicate_key_update()
+merge()     # MERGE INTO ... USING ... ON ... WHEN MATCHED/NOT MATCHED
+replace()   # REPLACE INTO
+trace_query() # Query tracing utility
+
+# Types (CUBRID-specific)
+STRING, BIT, CLOB, BLOB, SET, MULTISET, SEQUENCE, MONETARY, OBJECT
+NCHAR, NVARCHAR, DOUBLE_PRECISION, REAL
+
+# Types (standard, re-exported)
+SMALLINT, INTEGER, BIGINT, NUMERIC, DECIMAL, FLOAT, DOUBLE
+CHAR, VARCHAR, DATE, TIME, TIMESTAMP, DATETIME
+
+# Entry Points (registered via pyproject.toml)
+cubrid://          → CubridDialect
+cubrid.cubrid://   → CubridDialect  
+cubrid+pycubrid:// → PyCubridDialect
+cubrid (alembic)   → CubridImpl
+```
+
+## What This Package Owns / Does Not Own
+
+### Owns
+*   SQLAlchemy dialect for CUBRID
+*   SQL compilation (SELECT/INSERT/UPDATE/DELETE with CUBRID syntax)
+*   DDL compilation
+*   Type mapping
+*   Schema reflection
+*   DML extensions (ODKU, MERGE, REPLACE)
+*   Alembic DDL support
+*   Identifier quoting
+
+### Does Not Own
+*   The CUBRID driver itself (use pycubrid or CUBRIDdb)
+*   Connection pooling (SQLAlchemy handles this)
+*   ORM model definitions (user code)
+*   The CAS wire protocol (pycubrid handles this)
+*   Query optimization (CUBRID server handles this)
+
+## Related Documents
+*   [Connection Guide](CONNECTION.md)
+*   [Type System](TYPES.md)
+*   [Isolation Levels](ISOLATION_LEVELS.md)
+*   [DML Extensions](DML_EXTENSIONS.md)
+*   [Alembic Guide](ALEMBIC.md)
+*   [Feature Support](FEATURE_SUPPORT.md)
+*   [Support Matrix](SUPPORT_MATRIX.md)
+*   [Driver Compatibility](DRIVER_COMPAT.md)
+
+---
+
+# Performance Guide
+
+This guide covers observed performance for `sqlalchemy-cubrid` and practical optimization patterns.
+
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Benchmark Results](#benchmark-results)
+- [Performance Characteristics](#performance-characteristics)
+- [Optimization Tips](#optimization-tips)
+- [Running Benchmarks](#running-benchmarks)
+
+---
+
+## Overview
+
+`sqlalchemy-cubrid` adds SQLAlchemy Core/ORM behavior on top of the CUBRID Python driver.
+
+```mermaid
+flowchart LR
+    App[Application / ORM Models] --> SA[SQLAlchemy Core / ORM]
+    SA --> Dialect[sqlalchemy-cubrid Dialect]
+    Dialect --> Driver[pycubrid DBAPI]
+    Driver --> CAS[CAS Binary Protocol]
+    CAS --> Server[(CUBRID Server)]
+```
+
+```mermaid
+flowchart TD
+    Query[ORM Query] --> Compile[SQL compilation]
+    Compile --> Bind[Parameter binding]
+    Bind --> Execute[DBAPI execute]
+    Execute --> Fetch[Row fetch + object materialization]
+    Fetch --> AppOut[Application objects]
+```
+
+---
+
+## Benchmark Results
+
+Source: [cubrid-benchmark](https://github.com/cubrid-labs/cubrid-benchmark)
+
+Environment: Intel Core i5-9400F @ 2.90GHz, 6 cores, Linux x86_64, Docker containers.
+
+Baseline driver workload: Python `pycubrid` vs `PyMySQL`, 10000 rows x 5 rounds.
+
+| Scenario | CUBRID (pycubrid baseline) | MySQL (PyMySQL) | Ratio (CUBRID/MySQL) |
+|---|---:|---:|---:|
+| insert_sequential | 10.47s | 1.74s | 6.0x |
+| select_by_pk | 15.99s | 3.52s | 4.5x |
+| select_full_scan | 10.31s | 1.86s | 5.5x |
+| update_indexed | 10.70s | 2.19s | 4.9x |
+| delete_sequential | 10.75s | 2.10s | 5.1x |
+
+Note: SQLAlchemy adds extra overhead for SQL compilation, ORM identity mapping, and object creation.
+
+---
+
+## Performance Characteristics
+
+- The dialect inherits `pycubrid` transport behavior and CAS protocol costs.
+- Core query compilation is fast but non-zero; repeated dynamic SQL can accumulate overhead.
+- ORM paths add identity map and model materialization costs compared to raw DBAPI usage.
+- Pool configuration strongly impacts latency under concurrency.
+- Bulk APIs and Core statements generally outperform row-by-row ORM unit-of-work patterns.
+
+---
+
+## Optimization Tips
+
+- Configure pooling explicitly (example: `pool_size`, `max_overflow`, `pool_pre_ping=True`).
+- Use SQLAlchemy Core for high-volume bulk writes and large read pipelines.
+- Use `executemany`-friendly patterns for insert/update bursts.
+- Keep transactions explicit and avoid autocommit-style tiny transactions.
+- Limit ORM object hydration when only scalar/tuple output is needed.
+
+```mermaid
+flowchart TD
+    Start[Performance tuning] --> Pool{Pool saturated?}
+    Pool -->|Yes| TunePool[Increase pool_size / max_overflow]
+    Pool -->|No| ORM{Heavy ORM hydration?}
+    ORM -->|Yes| CorePath[Switch hot path to Core statements]
+    ORM -->|No| Batch{Batch operations possible?}
+    Batch -->|Yes| Bulk[Use bulk operations / executemany]
+    Batch -->|No| IndexCheck[Validate SQL plans and indexes]
+```
+
+---
+
+## Running Benchmarks
+
+1. Clone: `git clone https://github.com/cubrid-labs/cubrid-benchmark`.
+2. Start the benchmark database containers per the benchmark documentation.
+3. Run the Python benchmark suite to establish DBAPI baseline metrics.
+4. Run SQLAlchemy-specific scenarios on the same host and dataset shape.
+5. Compare driver baseline vs ORM/Core runs to isolate framework overhead.
+
+Use the benchmark repository documentation for the exact command set and runner scripts.
+
+---
+
+# Troubleshooting Guide
+
+Comprehensive solutions for common sqlalchemy-cubrid issues — connection setup, SQL compilation, type mapping, schema reflection, Alembic migrations, ORM patterns, and performance tuning.
+
+---
+
+## Table of Contents
+
+- [Installation Issues](#installation-issues)
+  - [ImportError: No module named 'CUBRIDdb'](#importerror-no-module-named-cubriddb)
+  - [ImportError: No module named 'pycubrid'](#importerror-no-module-named-pycubrid)
+  - [C Extension Build Failure](#c-extension-build-failure)
+- [Connection Issues](#connection-issues)
+  - [Connection Refused on Port 33000](#connection-refused-on-port-33000)
+  - [Authentication Failed](#authentication-failed)
+  - [Stale Connections / Disconnections](#stale-connections--disconnections)
+  - [Connection Pool Exhaustion](#connection-pool-exhaustion)
+  - [Wrong URL Format](#wrong-url-format)
+- [SQL Compilation Issues](#sql-compilation-issues)
+  - [Unsupported RETURNING Clause](#unsupported-returning-clause)
+  - [Boolean Column Behavior](#boolean-column-behavior)
+  - [LIMIT / OFFSET Syntax](#limit--offset-syntax)
+  - [CAST Type Limitations](#cast-type-limitations)
+  - [Reserved Word Conflicts](#reserved-word-conflicts)
+  - [No JSON Type Support](#no-json-type-support)
+- [Type Mapping Issues](#type-mapping-issues)
+  - [Boolean Mapped to SMALLINT](#boolean-mapped-to-smallint)
+  - [Text Mapped to STRING](#text-mapped-to-string)
+  - [Missing ARRAY Type](#missing-array-type)
+  - [LOB Column Behavior](#lob-column-behavior)
+  - [Collection Types (SET, MULTISET, SEQUENCE)](#collection-types-set-multiset-sequence)
+  - [Decimal Precision](#decimal-precision)
+- [Schema Reflection Issues](#schema-reflection-issues)
+  - [Table Not Found During Reflection](#table-not-found-during-reflection)
+  - [Case Sensitivity in Table Names](#case-sensitivity-in-table-names)
+  - [View Reflection](#view-reflection)
+  - [Missing Schema Support](#missing-schema-support)
+- [ORM Issues](#orm-issues)
+  - [autoincrement and lastrowid](#autoincrement-and-lastrowid)
+  - [No Sequences — Use AUTO_INCREMENT](#no-sequences--use-auto_increment)
+  - [Relationship Cascade Behavior](#relationship-cascade-behavior)
+  - [Bulk Insert Performance](#bulk-insert-performance)
+- [DML Extension Issues](#dml-extension-issues)
+  - [ON DUPLICATE KEY UPDATE Not Working](#on-duplicate-key-update-not-working)
+  - [MERGE Statement Errors](#merge-statement-errors)
+  - [REPLACE INTO Behavior](#replace-into-behavior)
+- [Alembic Migration Issues](#alembic-migration-issues)
+  - [No Implementation Found for Dialect 'cubrid'](#no-implementation-found-for-dialect-cubrid)
+  - [ALTER COLUMN TYPE Fails](#alter-column-type-fails)
+  - [RENAME COLUMN Fails](#rename-column-fails)
+  - [Partial Migration (DDL Auto-Commit)](#partial-migration-ddl-auto-commit)
+  - [Autogenerate Not Detecting Changes](#autogenerate-not-detecting-changes)
+- [Isolation Level Issues](#isolation-level-issues)
+  - [Setting Isolation Levels](#setting-isolation-levels)
+  - [DDL Commits Current Transaction](#ddl-commits-current-transaction)
+- [Transaction Issues](#transaction-issues)
+  - [Data Not Persisted](#data-not-persisted)
+  - [Autocommit Conflicts](#autocommit-conflicts)
+  - [Savepoint Limitations](#savepoint-limitations)
+- [Performance Issues](#performance-issues)
+  - [Slow Schema Reflection](#slow-schema-reflection)
+  - [Connection Overhead](#connection-overhead)
+  - [Statement Caching](#statement-caching)
+- [Docker Issues](#docker-issues)
+  - [Container Starts but Cannot Connect](#container-starts-but-cannot-connect)
+  - [Database Not Created](#database-not-created)
+  - [Version-Specific Behavior](#version-specific-behavior)
+- [Debugging Techniques](#debugging-techniques)
+
+---
+
+## Installation Issues
+
+### ImportError: No module named 'CUBRIDdb'
+
+**Symptom:**
+
+```
+ImportError: No module named 'CUBRIDdb'
+```
+
+**Cause:** The CUBRID C-extension Python driver is not installed.
+
+**Fix — Option A: Install the C-extension driver:**
+
+```bash
+pip install CUBRID-Python
+```
+
+> **Note:** This requires the CUBRID CCI library and a C compiler. See the [CUBRID Python driver docs](https://www.cubrid.org/manual/en/11.0/api/python.html) for platform-specific instructions.
+
+**Fix — Option B: Use the pure Python driver instead (recommended):**
+
+```bash
+pip install "sqlalchemy-cubrid[pycubrid]"
+```
+
+Then change your connection URL:
+
+```python
+# Before (C-extension)
+engine = create_engine("cubrid://dba@localhost:33000/testdb")
+
+# After (pure Python — no C build needed)
+engine = create_engine("cubrid+pycubrid://dba@localhost:33000/testdb")
+```
+
+---
+
+### ImportError: No module named 'pycubrid'
+
+**Symptom:**
+
+```
+ImportError: No module named 'pycubrid'
+```
+
+**Fix:**
+
+```bash
+pip install pycubrid
+# Or install both together
+pip install "sqlalchemy-cubrid[pycubrid]"
+```
+
+---
+
+### C Extension Build Failure
+
+**Symptom:** `pip install CUBRID-Python` fails with compilation errors.
+
+**Common causes:**
+- Missing C compiler (`gcc` / `cl.exe`)
+- Missing CUBRID CCI headers
+- Incompatible platform
+
+**Fix:** Use pycubrid instead — it's pure Python and requires no build tools:
+
+```bash
+pip install "sqlalchemy-cubrid[pycubrid]"
+```
+
+---
+
+## Connection Issues
+
+### Connection Refused on Port 33000
+
+**Symptom:**
+
+```
+OperationalError: (CUBRIDdb.DatabaseError) Connection refused
+```
+
+**Fixes:**
+
+1. **Check the CUBRID broker is running:**
+
+   ```bash
+   cubrid broker status
+   cubrid service status
+   ```
+
+2. **Docker container not ready:**
+
+   ```bash
+   docker compose up -d
+   sleep 10  # Wait for full initialization
+   docker compose ps  # Verify "running" status
+   ```
+
+3. **Wrong port:** Check `cubrid_broker.conf` for the actual broker port.
+
+4. **Firewall:** Ensure port 33000 is not blocked.
+
+---
+
+### Authentication Failed
+
+**Symptom:**
+
+```
+OperationalError: Authentication failed
+```
+
+**Fix:** CUBRID's default `dba` user has **no password**:
+
+```python
+# Correct — no password
+engine = create_engine("cubrid://dba@localhost:33000/testdb")
+
+# Correct — with password (if set)
+engine = create_engine("cubrid://dba:mypassword@localhost:33000/testdb")
+```
+
+---
+
+### Stale Connections / Disconnections
+
+**Symptom:**
+
+```
+OperationalError: Connection is closed
+OperationalError: broker is not available
+```
+
+**Cause:** The CUBRID broker has a `SESSION_TIMEOUT` (default ~300 seconds). Idle pooled connections expire server-side.
+
+**Fix:** Configure pool settings:
+
+```python
+engine = create_engine(
+    "cubrid://dba@localhost:33000/testdb",
+    pool_pre_ping=True,  # Test connection before checkout
+    pool_recycle=240,     # Recycle before SESSION_TIMEOUT (300s)
+)
+```
+
+See [Connection Guide — Pool Tuning](CONNECTION.md#connection-pool-tuning) for detailed recommendations.
+
+---
+
+### Connection Pool Exhaustion
+
+**Symptom:**
+
+```
+TimeoutError: QueuePool limit of size 5 overflow 10 reached
+```
+
+**Causes:**
+- Connections not being returned to the pool (missing `close()` or context manager)
+- Pool too small for application concurrency
+
+**Fix:**
+
+```python
+engine = create_engine(
+    "cubrid://dba@localhost:33000/testdb",
+    pool_size=10,
+    max_overflow=20,
+    pool_timeout=30,
+)
+
+# Always use context managers to return connections
+with engine.connect() as conn:
+    result = conn.execute(text("SELECT 1"))
+```
+
+---
+
+### Wrong URL Format
+
+**Symptom:**
+
+```
+ArgumentError: Could not parse rfc1738 URL
+NoSuchModuleError: Can't load plugin: sqlalchemy.dialects:pycubrid
+```
+
+**Correct URL formats:**
+
+```python
+# C-extension driver (CUBRIDdb)
+engine = create_engine("cubrid://dba@localhost:33000/testdb")
+engine = create_engine("cubrid+cubrid://dba@localhost:33000/testdb")
+
+# Pure Python driver (pycubrid)
+engine = create_engine("cubrid+pycubrid://dba@localhost:33000/testdb")
+```
+
+**Common mistakes:**
+
+```python
+# WRONG — 'pycubrid://' is not a valid scheme
+engine = create_engine("pycubrid://dba@localhost:33000/testdb")
+
+# WRONG — port should be in the URL, not as a query parameter
+engine = create_engine("cubrid://dba@localhost/testdb?port=33000")
+```
+
+---
+
+## SQL Compilation Issues
+
+### Unsupported RETURNING Clause
+
+**Symptom:**
+
+```
+CompileError: RETURNING is not supported by this dialect
+```
+
+**Cause:** CUBRID does not support `INSERT ... RETURNING` or `UPDATE ... RETURNING`.
+
+**Fix:** Use `cursor.lastrowid` or `SELECT LAST_INSERT_ID()`:
+
+```python
+from sqlalchemy import insert, select, text
+
+# Insert and get the generated ID
+with engine.begin() as conn:
+    result = conn.execute(
+        insert(users).values(name="Alice", email="alice@example.com")
+    )
+    new_id = result.inserted_primary_key[0]
+    print(f"New user ID: {new_id}")
+
+# Or use LAST_INSERT_ID()
+with engine.begin() as conn:
+    conn.execute(text("INSERT INTO users (name) VALUES ('Alice')"))
+    last_id = conn.execute(text("SELECT LAST_INSERT_ID()")).scalar()
+```
+
+**ORM pattern:**
+
+```python
+with Session(engine) as session:
+    user = User(name="Alice", email="alice@example.com")
+    session.add(user)
+    session.flush()  # Sends INSERT, populates user.id
+    print(user.id)   # Available after flush
+    session.commit()
+```
+
+---
+
+### Boolean Column Behavior
+
+**Symptom:** Boolean columns store/return `0` and `1` instead of `True`/`False`.
+
+**Cause:** CUBRID has no native `BOOLEAN` type. The dialect maps `Boolean` to `SMALLINT`.
+
+**Fix:** This is expected. SQLAlchemy automatically converts between Python `bool` and `SMALLINT(0/1)`:
+
+```python
+from sqlalchemy import Boolean
+from sqlalchemy.orm import mapped_column, Mapped
+
+class User(Base):
+    __tablename__ = "users"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Stored as SMALLINT: True→1, False→0
+    # Retrieved as bool automatically
+```
+
+**In raw SQL:**
+
+```python
+# Insert
+conn.execute(text("INSERT INTO users (is_active) VALUES (:val)"), {"val": 1})
+
+# Query — compare against 0/1
+conn.execute(text("SELECT * FROM users WHERE is_active = 1"))
+```
+
+---
+
+### LIMIT / OFFSET Syntax
+
+**Symptom:** Unexpected query behavior with pagination.
+
+**CUBRID supports standard `LIMIT n OFFSET m` syntax.** The dialect generates this automatically:
+
+```python
+# SQLAlchemy generates correct CUBRID LIMIT/OFFSET
+stmt = select(users).limit(10).offset(20)
+# → SELECT ... FROM users LIMIT 10 OFFSET 20
+```
+
+**Note:** CUBRID does not support MySQL's `LIMIT offset, count` comma syntax. The dialect always uses `LIMIT n OFFSET m`.
+
+---
+
+### CAST Type Limitations
+
+**Symptom:**
+
+```
+ProgrammingError: CAST to this type is not supported
+```
+
+**Cause:** CUBRID's `CAST()` supports a limited set of target types.
+
+**Supported CAST targets:**
+
+| Target Type | Example |
+|---|---|
+| `CHAR(n)` | `CAST(col AS CHAR(10))` |
+| `VARCHAR(n)` | `CAST(col AS VARCHAR(100))` |
+| `NCHAR(n)` | `CAST(col AS NCHAR(10))` |
+| `INTEGER` | `CAST(col AS INTEGER)` |
+| `BIGINT` | `CAST(col AS BIGINT)` |
+| `FLOAT` | `CAST(col AS FLOAT)` |
+| `DOUBLE` | `CAST(col AS DOUBLE)` |
+| `NUMERIC(p,s)` | `CAST(col AS NUMERIC(10,2))` |
+| `DATE` | `CAST(col AS DATE)` |
+| `TIME` | `CAST(col AS TIME)` |
+| `DATETIME` | `CAST(col AS DATETIME)` |
+| `TIMESTAMP` | `CAST(col AS TIMESTAMP)` |
+
+**Unsupported:** `CAST(... AS BOOLEAN)`, `CAST(... AS BLOB)`, `CAST(... AS SET)`.
+
+---
+
+### Reserved Word Conflicts
+
+**Symptom:**
+
+```
+ProgrammingError: Syntax error near 'value'
+```
+
+**Cause:** CUBRID has many reserved words that may conflict with column or table names.
+
+**Common CUBRID reserved words:**
+
+| Reserved Word | Safe Alternative |
+|---|---|
+| `value` | `val`, `item_value` |
+| `count` | `cnt`, `item_count` |
+| `data` | `file_data`, `raw_data` |
+| `level` | `user_level` |
+| `action` | `user_action` |
+| `status` | `item_status` |
+| `type` | `item_type` |
+
+**Fix — The dialect auto-quotes identifiers**, but if you're using `text()` for raw SQL, quote manually:
+
+```python
+# Auto-quoting works for ORM and Core constructs
+class Config(Base):
+    __tablename__ = "config"
+    value: Mapped[str] = mapped_column("val", String(100))  # Rename the column
+
+# For raw SQL, use double quotes
+conn.execute(text('SELECT "value" FROM config'))
+```
+
+The `CubridIdentifierPreparer` handles quoting automatically for reserved words. The full reserved word list is maintained in `base.py`.
+
+---
+
+### No JSON Type Support
+
+**Symptom:**
+
+```
+CompileError: JSON is not supported by this dialect
+```
+
+**Cause:** CUBRID does not have a native JSON data type.
+
+**Workaround:** Store JSON as `VARCHAR` or `STRING` (CLOB-like) and serialize/deserialize in Python:
+
+```python
+import json
+from sqlalchemy import String, TypeDecorator
+
+class JSONType(TypeDecorator):
+    """Store JSON as VARCHAR in CUBRID."""
+    impl = String(4096)
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is not None:
+            return json.dumps(value)
+        return None
+
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            return json.loads(value)
+        return None
+
+class Config(Base):
+    __tablename__ = "config"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    settings: Mapped[dict] = mapped_column(JSONType)
+```
+
+---
+
+## Type Mapping Issues
+
+### Boolean Mapped to SMALLINT
+
+See [Boolean Column Behavior](#boolean-column-behavior) above.
+
+---
+
+### Text Mapped to STRING
+
+**Behavior:** SQLAlchemy's `Text` type maps to CUBRID's `STRING` type, which is equivalent to `VARCHAR(1,073,741,823)` — a very large variable-length string.
+
+```python
+from sqlalchemy import Text
+
+class Article(Base):
+    __tablename__ = "articles"
+    content: Mapped[str] = mapped_column(Text)
+    # → STRING in DDL (equivalent to VARCHAR(1073741823))
+```
+
+This is correct behavior. CUBRID's `STRING` type serves the same purpose as `TEXT` in MySQL/PostgreSQL.
+
+---
+
+### Missing ARRAY Type
+
+**Cause:** CUBRID does not have a standard `ARRAY` type. Instead, it offers **collection types**: `SET`, `MULTISET`, and `SEQUENCE`.
+
+```python
+from sqlalchemy_cubrid import SET, MULTISET, SEQUENCE
+
+class Product(Base):
+    __tablename__ = "products"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tags: Mapped[str] = mapped_column(SET(String(50)))        # Unique, unordered
+    categories: Mapped[str] = mapped_column(MULTISET(String(50)))  # Allows duplicates
+    colors: Mapped[str] = mapped_column(SEQUENCE(String(50)))      # Ordered
+```
+
+**SQL equivalents:**
+
+```sql
+CREATE TABLE products (
+    id INTEGER AUTO_INCREMENT PRIMARY KEY,
+    tags SET(VARCHAR(50)),
+    categories MULTISET(VARCHAR(50)),
+    colors SEQUENCE(VARCHAR(50))
+);
+```
+
+---
+
+### LOB Column Behavior
+
+**CLOB** (Character Large Object) and **BLOB** (Binary Large Object) types are supported:
+
+```python
+from sqlalchemy import LargeBinary, Text
+
+class Document(Base):
+    __tablename__ = "documents"
+    content: Mapped[str] = mapped_column(Text)       # Uses STRING (CLOB-like)
+    binary_data: Mapped[bytes] = mapped_column(LargeBinary)  # Uses BLOB
+```
+
+**Note:** LOB behavior depends on the driver:
+- **CUBRIDdb** (C-extension): LOB columns may return raw bytes or LOB handles
+- **pycubrid** (pure Python): LOB columns return a dictionary with metadata (`lob_type`, `lob_length`, `file_locator`, `packed_lob_handle`)
+
+For simple use cases, insert strings/bytes directly and they will be stored in the LOB column.
+
+---
+
+### Collection Types (SET, MULTISET, SEQUENCE)
+
+**Reflection:** When reflecting tables with collection columns, the dialect maps them back to the appropriate SQLAlchemy type:
+
+```python
+from sqlalchemy import inspect
+
+inspector = inspect(engine)
+columns = inspector.get_columns("products")
+for col in columns:
+    print(f"{col['name']}: {col['type']}")
+    # tags: SET(VARCHAR(50))
+    # categories: MULTISET(VARCHAR(50))
+```
+
+**Inserting collection data:** Use CUBRID's collection literal syntax in raw SQL:
+
+```sql
+INSERT INTO products (tags) VALUES ({'red', 'blue', 'green'});
+```
+
+---
+
+### Decimal Precision
+
+**Symptom:** Decimal values lose precision.
+
+**Fix:** Use `NUMERIC(precision, scale)` for exact decimal arithmetic:
+
+```python
+from sqlalchemy_cubrid import NUMERIC
+
+class Product(Base):
+    __tablename__ = "products"
+    price: Mapped[Decimal] = mapped_column(NUMERIC(10, 2))
+    # Stores exactly 10 digits with 2 decimal places
+```
+
+CUBRID supports precision up to 38 digits.
+
+---
+
+## Schema Reflection Issues
+
+### Table Not Found During Reflection
+
+**Symptom:**
+
+```
+NoSuchTableError: table_name
+```
+
+**Causes:**
+
+1. **Table doesn't exist** — verify in CUBRID directly
+2. **Case sensitivity** — CUBRID folds identifiers to **lowercase** (unlike SQL standard which folds to uppercase):
+
+   ```python
+   # CUBRID stores table names in lowercase
+   inspector = inspect(engine)
+   tables = inspector.get_table_names()
+   print(tables)  # ['users', 'products'] — all lowercase
+   ```
+
+3. **Wrong database** — ensure your connection URL points to the correct database
+
+---
+
+### Case Sensitivity in Table Names
+
+**CUBRID folds unquoted identifiers to lowercase.** This differs from PostgreSQL (lowercase) and Oracle (uppercase).
+
+```python
+# These all refer to the same table
+conn.execute(text("CREATE TABLE MyTable (id INT)"))  # Stored as 'mytable'
+conn.execute(text("SELECT * FROM MYTABLE"))          # Finds 'mytable'
+conn.execute(text("SELECT * FROM mytable"))          # Finds 'mytable'
+
+# To preserve case, use double quotes
+conn.execute(text('CREATE TABLE "MyTable" (id INT)'))  # Stored as 'MyTable'
+conn.execute(text('SELECT * FROM "MyTable"'))          # Must use quotes
+```
+
+The dialect's `CubridIdentifierPreparer` handles this automatically by setting `requires_name_normalize = True` and `initial_quote = '"'`.
+
+---
+
+### View Reflection
+
+**Supported.** Use `inspector.get_view_names()`:
+
+```python
+inspector = inspect(engine)
+views = inspector.get_view_names()
+print(views)  # ['my_view', 'active_users_view']
+```
+
+---
+
+### Missing Schema Support
+
+**CUBRID uses a single-schema model.** Unlike PostgreSQL, there is no concept of multiple schemas within a database.
+
+```python
+# WRONG — CUBRID doesn't support schema parameter
+inspector.get_table_names(schema="public")
+
+# CORRECT — omit schema
+inspector.get_table_names()
+```
+
+If your code needs to work across databases (PostgreSQL + CUBRID), handle this with a conditional:
+
+```python
+schema = None if dialect_name == "cubrid" else "public"
+tables = inspector.get_table_names(schema=schema)
+```
+
+---
+
+## ORM Issues
+
+### autoincrement and lastrowid
+
+**CUBRID uses `AUTO_INCREMENT`** (not sequences) for auto-generated primary keys:
+
+```python
+class User(Base):
+    __tablename__ = "users"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(100))
+```
+
+**After insert, the ID is available via `flush()`:**
+
+```python
+with Session(engine) as session:
+    user = User(name="Alice")
+    session.add(user)
+    session.flush()
+    print(user.id)  # Auto-generated ID
+    session.commit()
+```
+
+The dialect implements `get_lastrowid()` in `CubridExecutionContext` which calls `cursor.lastrowid`.
+
+---
+
+### No Sequences — Use AUTO_INCREMENT
+
+**Symptom:**
+
+```
+CompileError: sequences are not supported by this dialect
+```
+
+**Cause:** CUBRID does not support SQL sequences. Use `AUTO_INCREMENT` columns instead:
+
+```python
+# WRONG — sequences not supported
+from sqlalchemy import Sequence
+id = Column(Integer, Sequence("user_id_seq"), primary_key=True)
+
+# CORRECT — use autoincrement
+id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+```
+
+---
+
+### Relationship Cascade Behavior
+
+**Foreign key cascades work normally** in CUBRID:
+
+```python
+class User(Base):
+    __tablename__ = "users"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    posts: Mapped[list["Post"]] = relationship(back_populates="author", cascade="all, delete-orphan")
+
+class Post(Base):
+    __tablename__ = "posts"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    author: Mapped["User"] = relationship(back_populates="posts")
+```
+
+---
+
+### Bulk Insert Performance
+
+**For inserting many rows**, use `insert().values()` with a list of dicts:
+
+```python
+from sqlalchemy import insert
+
+with engine.begin() as conn:
+    conn.execute(
+        insert(users),
+        [
+            {"name": "Alice", "email": "alice@example.com"},
+            {"name": "Bob", "email": "bob@example.com"},
+            {"name": "Charlie", "email": "charlie@example.com"},
+        ],
+    )
+```
+
+For very large datasets, batch inserts with `executemany()` or use `executemany_batch()` (pycubrid-specific).
+
+---
+
+## DML Extension Issues
+
+### ON DUPLICATE KEY UPDATE Not Working
+
+**Symptom:** `on_duplicate_key_update()` raises `AttributeError`.
+
+**Cause:** You're using SQLAlchemy's built-in `insert()` instead of the dialect's custom `insert()`:
+
+```python
+# WRONG — standard SQLAlchemy insert has no on_duplicate_key_update
+from sqlalchemy import insert
+stmt = insert(users).values(name="Alice")
+stmt = stmt.on_duplicate_key_update(name="Alice Updated")  # AttributeError!
+
+# CORRECT — use the dialect's insert
+from sqlalchemy_cubrid import insert
+stmt = insert(users).values(name="Alice")
+stmt = stmt.on_duplicate_key_update(name="Alice Updated")
+```
+
+**The table must have a UNIQUE or PRIMARY KEY constraint** for the duplicate detection to work.
+
+---
+
+### MERGE Statement Errors
+
+**Symptom:** `MERGE` statement compilation fails.
+
+**Checklist:**
+
+1. **Import from the correct module:**
+
+   ```python
+   from sqlalchemy_cubrid.dml import merge
+   ```
+
+2. **All required clauses must be present:**
+
+   ```python
+   stmt = (
+       merge(target)
+       .using(source)                        # Required
+       .on(target.c.id == source.c.id)       # Required
+       .when_matched_then_update(...)        # At least one WHEN clause
+       .when_not_matched_then_insert(...)
+   )
+   ```
+
+3. **`when_matched_then_delete()` requires a prior `when_matched_then_update()`:**
+
+   ```python
+   # WRONG — delete without update
+   merge(t).using(s).on(condition).when_matched_then_delete()
+
+   # CORRECT — delete after update
+   merge(t).using(s).on(condition).when_matched_then_update({...}).when_matched_then_delete(where=...)
+   ```
+
+---
+
+### REPLACE INTO Behavior
+
+**`REPLACE INTO` deletes the existing row and inserts a new one** (unlike `ON DUPLICATE KEY UPDATE` which updates in place):
+
+```python
+from sqlalchemy_cubrid import replace
+
+# This DELETES the existing row with the conflicting key,
+# then INSERTs the new row
+stmt = replace(users).values(id=1, name="Alice", email="alice@new.com")
+```
+
+**Warning:** `REPLACE INTO` causes the row to get a **new auto-increment ID** if the table uses `AUTO_INCREMENT`. If you want to preserve the existing row's ID, use `ON DUPLICATE KEY UPDATE` instead.
+
+---
+
+## Alembic Migration Issues
+
+### No Implementation Found for Dialect 'cubrid'
+
+**Symptom:**
+
+```
+CommandError: No implementation found for dialect 'cubrid'
+```
+
+**Fix:** Install with the `alembic` extra:
+
+```bash
+pip install "sqlalchemy-cubrid[alembic]"
+```
+
+The `CubridImpl` class is auto-discovered via the `alembic.ddl` entry point. No manual configuration needed.
+
+---
+
+### ALTER COLUMN TYPE Fails
+
+**Symptom:**
+
+```
+NotImplementedError: CUBRID does not support ALTER COLUMN TYPE
+```
+
+**CUBRID does not support changing a column's data type** with `ALTER TABLE`.
+
+**Workaround — use `batch_alter_table` (table recreate):**
+
+```python
+def upgrade():
+    with op.batch_alter_table("users") as batch_op:
+        batch_op.alter_column("name", type_=sa.String(500))
+
+def downgrade():
+    with op.batch_alter_table("users") as batch_op:
+        batch_op.alter_column("name", type_=sa.String(100))
+```
+
+`batch_alter_table` creates a new table, copies data, drops the original, and renames.
+
+---
+
+### RENAME COLUMN Fails
+
+**Symptom:**
+
+```
+NotImplementedError: CUBRID does not support RENAME COLUMN
+```
+
+**CUBRID ≤ 11.x does not support `ALTER TABLE ... RENAME COLUMN`.**
+
+**Workaround — use `batch_alter_table`:**
+
+```python
+def upgrade():
+    with op.batch_alter_table("users") as batch_op:
+        batch_op.alter_column("old_name", new_column_name="new_name")
+```
+
+---
+
+### Partial Migration (DDL Auto-Commit)
+
+**Symptom:** A migration fails partway through, leaving the database in an inconsistent state.
+
+**Cause:** CUBRID auto-commits every DDL statement (`CREATE`, `ALTER`, `DROP`). The `CubridImpl` sets `transactional_ddl = False`, meaning Alembic cannot roll back DDL operations.
+
+**Prevention:**
+
+1. Keep migrations small — one logical change per migration
+2. Test migrations against a staging database first
+3. Back up the database before running migrations
+
+**Recovery:**
+
+```bash
+# Check current state
+alembic current
+
+# Manually fix the database, then stamp to correct revision
+alembic stamp <revision_id>
+```
+
+---
+
+### Autogenerate Not Detecting Changes
+
+**Possible causes:**
+
+1. **Models not imported** — Alembic's autogenerate only sees models that are imported when `env.py` runs:
+
+   ```python
+   # In env.py — import all models
+   from myapp.models import Base
+   target_metadata = Base.metadata
+   ```
+
+2. **Table already exists with different schema** — CUBRID reflection may not perfectly match your model definition (e.g., `VARCHAR(4096)` vs `String()`)
+
+3. **Collection types** — changes to `SET`, `MULTISET`, `SEQUENCE` types may not be detected by autogenerate
+
+---
+
+## Isolation Level Issues
+
+### Setting Isolation Levels
+
+**CUBRID supports 6 isolation levels** (dual-granularity: class-level + instance-level):
+
+```python
+# Engine-level (applies to all connections)
+engine = create_engine(
+    "cubrid://dba@localhost:33000/testdb",
+    isolation_level="REPEATABLE READ",
+)
+
+# Connection-level
+with engine.connect().execution_options(
+    isolation_level="SERIALIZABLE"
+) as conn:
+    result = conn.execute(text("SELECT * FROM accounts"))
+```
+
+**Available levels:**
+
+| SQLAlchemy Name | CUBRID Level |
+|---|---|
+| `"SERIALIZABLE"` | `TRAN_SERIALIZABLE` |
+| `"REPEATABLE READ"` | `TRAN_REP_CLASS_REP_INSTANCE` |
+| `"READ COMMITTED"` | `TRAN_REP_CLASS_COMMIT_INSTANCE` |
+| `"READ UNCOMMITTED"` | `TRAN_REP_CLASS_UNCOMMIT_INSTANCE` |
+| `"CUBRID READ COMMITTED"` | `TRAN_COMMIT_CLASS_COMMIT_INSTANCE` |
+| `"CUBRID READ UNCOMMITTED"` | `TRAN_COMMIT_CLASS_UNCOMMIT_INSTANCE` |
+
+---
+
+### DDL Commits Current Transaction
+
+**All DDL statements auto-commit in CUBRID.** This means:
+
+```python
+with engine.begin() as conn:
+    conn.execute(text("INSERT INTO users (name) VALUES ('Alice')"))
+    conn.execute(text("CREATE TABLE temp (id INT)"))  # AUTO-COMMITS everything!
+    # The INSERT above is now committed, even if an error occurs below
+    conn.execute(text("INSERT INTO users (name) VALUES ('Bob')"))
+```
+
+**Best practice:** Never mix DML and DDL in the same transaction.
+
+---
+
+## Transaction Issues
+
+### Data Not Persisted
+
+**Symptom:** Data is inserted without errors but disappears after reconnecting.
+
+**Cause:** Missing `commit()` or not using a transaction context.
+
+**Fix:**
+
+```python
+# Option 1: Explicit commit
+with engine.connect() as conn:
+    conn.execute(text("INSERT INTO users (name) VALUES ('Alice')"))
+    conn.commit()
+
+# Option 2: begin() auto-commits on success
+with engine.begin() as conn:
+    conn.execute(text("INSERT INTO users (name) VALUES ('Alice')"))
+    # Auto-commits on successful exit
+
+# Option 3: ORM session
+with Session(engine) as session:
+    session.add(User(name="Alice"))
+    session.commit()
+```
+
+---
+
+### Autocommit Conflicts
+
+**Symptom:** Statements commit unexpectedly.
+
+**Background:** Both CUBRID drivers default to `autocommit=True`, but the dialect sets `autocommit=False` on each new connection so SQLAlchemy can manage transactions.
+
+**If you need true autocommit** (each statement commits immediately):
+
+```python
+with engine.connect().execution_options(
+    isolation_level="AUTOCOMMIT"
+) as conn:
+    conn.execute(text("INSERT INTO logs (msg) VALUES ('event')"))
+    # Committed immediately
+```
+
+---
+
+### Savepoint Limitations
+
+**CUBRID supports `SAVEPOINT` and `ROLLBACK TO SAVEPOINT`**, but does **not** support `RELEASE SAVEPOINT`. The dialect implements `do_release_savepoint()` as a no-op.
+
+```python
+with engine.begin() as conn:
+    conn.execute(text("INSERT INTO users (name) VALUES ('Alice')"))
+    savepoint = conn.begin_nested()
+    try:
+        conn.execute(text("INSERT INTO users (name) VALUES ('duplicate')"))
+        savepoint.commit()
+    except Exception:
+        savepoint.rollback()
+    # Alice's insert is still pending
+    conn.commit()
+```
+
+---
+
+## Performance Issues
+
+### Slow Schema Reflection
+
+**Symptom:** `inspector.get_table_names()` or `metadata.reflect()` is slow.
+
+**Cause:** Schema reflection queries system catalogs, which can be slow with many tables.
+
+**Fix:** Reflect only the tables you need:
+
+```python
+# SLOW — reflects ALL tables
+metadata.reflect(bind=engine)
+
+# FAST — reflect specific tables
+metadata.reflect(bind=engine, only=["users", "products", "orders"])
+```
+
+---
+
+### Connection Overhead
+
+**Each connection performs a multi-step CAS handshake.** Use connection pooling:
+
+```python
+# Default pool (recommended for web apps)
+engine = create_engine(
+    "cubrid://dba@localhost:33000/testdb",
+    pool_size=5,
+    pool_pre_ping=True,
+)
+
+# NullPool for scripts (no pooling)
+from sqlalchemy.pool import NullPool
+engine = create_engine(
+    "cubrid://dba@localhost:33000/testdb",
+    poolclass=NullPool,
+)
+```
+
+---
+
+### Statement Caching
+
+**The dialect supports SQLAlchemy's statement caching** (`supports_statement_cache = True`). This is enabled by default in SQLAlchemy 2.0 and significantly reduces compilation overhead for repeated queries.
+
+No configuration needed — it works automatically.
+
+---
+
+## Docker Issues
+
+### Container Starts but Cannot Connect
+
+**Fix:**
+
+```bash
+# 1. Check container is actually running
+docker compose ps
+
+# 2. Wait for broker initialization (takes ~10 seconds)
+docker compose up -d && sleep 10
+
+# 3. Test connection
+python3 -c "
+from sqlalchemy import create_engine, text
+engine = create_engine('cubrid+pycubrid://dba@localhost:33000/testdb')
+with engine.connect() as conn:
+    print(conn.execute(text('SELECT 1')).scalar())
+"
+```
+
+---
+
+### Database Not Created
+
+**The Docker image only creates the database specified in `CUBRID_DB`:**
+
+```yaml
+services:
+  cubrid:
+    image: cubrid/cubrid:11.2
+    environment:
+      CUBRID_DB: testdb  # Only this database is created
+    ports:
+      - "33000:33000"
+```
+
+If your connection URL uses a different database name, it will fail. Match `CUBRID_DB` with your connection URL.
+
+---
+
+### Version-Specific Behavior
+
+**Specify the CUBRID version explicitly:**
+
+```bash
+# Default (11.2)
+docker compose up -d
+
+# Specific version
+CUBRID_VERSION=11.4 docker compose up -d
+CUBRID_VERSION=10.2 docker compose up -d
+```
+
+**Known version differences:**
+
+| Feature | CUBRID 10.2 | CUBRID 11.0+ |
+|---|---|---|
+| `LIMIT` in `UPDATE` | ❌ | ✅ |
+| `CTE` (WITH clause) | ❌ | ✅ |
+| `MERGE` | ✅ | ✅ |
+| Index comments | ❌ | ✅ |
+
+---
+
+## Debugging Techniques
+
+## Troubleshooting Decision Flow
+
+```mermaid
+flowchart TD
+    start[Issue observed] --> kind{Primary symptom}
+    kind -->|Import / Module error| install[Check driver install]
+    kind -->|Connection failure| conn[Validate URL, host, port, credentials]
+    kind -->|SQL compile/runtime error| sql[Inspect generated SQL and unsupported feature]
+    kind -->|Migration failure| mig[Check Alembic limitations and DDL auto-commit]
+    kind -->|Performance issue| perf[Check pool settings, indexes, statement patterns]
+
+    install --> i1{CUBRIDdb or pycubrid?}
+    i1 -->|CUBRIDdb| i2[Install CUBRID-Python and CCI dependencies]
+    i1 -->|pycubrid| i3[Install pycubrid and use cubrid+pycubrid URL]
+
+    conn --> c1{Broker reachable?}
+    c1 -->|No| c2[Start broker / docker service and verify port 33000]
+    c1 -->|Yes| c3[Enable pool_pre_ping and review SESSION_TIMEOUT]
+
+    sql --> s1{Using unsupported feature?}
+    s1 -->|RETURNING / JSON / ARRAY| s2[Refactor using supported CUBRID patterns]
+    s1 -->|No| s3[Enable SQLAlchemy echo and inspect raw SQL]
+
+    mig --> m1[Split migration into atomic DDL steps]
+    perf --> p1[Profile query plan, batch size, lock scope]
+```
+
+!!! tip "Start with reproducibility"
+    Reduce the failing case to a minimal script with one engine, one table, and one query.
+    This quickly identifies whether the issue is driver, dialect, or application logic.
+
+!!! warning "Distinguish compilation errors from runtime errors"
+    - Compilation errors happen before SQL is sent.
+    - Runtime errors come from CUBRID or the driver.
+    They need different debugging paths.
+
+!!! tip "Capture environment details in issue reports"
+    Include dialect version, SQLAlchemy version, driver (`CUBRIDdb` or `pycubrid`),
+    CUBRID server version, and the exact connection URL format used.
+
+### Enable SQL Logging
+
+```python
+# Method 1: echo=True
+engine = create_engine("cubrid://dba@localhost:33000/testdb", echo=True)
+
+# Method 2: Python logging
+import logging
+logging.basicConfig()
+logging.getLogger("sqlalchemy.engine").setLevel(logging.DEBUG)
+```
+
+Output includes SQL statements, parameters, and execution times.
+
+### Check Dialect Version
+
+```python
+import sqlalchemy_cubrid
+print(sqlalchemy_cubrid.__version__)  # e.g., "0.7.1"
+
+from sqlalchemy import create_engine
+engine = create_engine("cubrid+pycubrid://dba@localhost:33000/testdb")
+print(engine.dialect.name)            # "cubrid"
+print(engine.dialect.server_version_info)  # (11, 2, 0, 378)
+```
+
+### Inspect Compiled SQL
+
+```python
+from sqlalchemy.dialects import registry
+
+# Compile a statement for CUBRID without executing
+from sqlalchemy_cubrid.dialect import CubridDialect
+
+stmt = select(users).where(users.c.name == "Alice")
+compiled = stmt.compile(dialect=CubridDialect())
+print(str(compiled))
+print(compiled.params)
+```
+
+### Test Connection Script
+
+```python
+#!/usr/bin/env python3
+"""Quick sqlalchemy-cubrid connection test."""
+import sys
+from sqlalchemy import create_engine, text, inspect
+
+url = "cubrid+pycubrid://dba@localhost:33000/testdb"
+try:
+    engine = create_engine(url)
+    with engine.connect() as conn:
+        version = conn.execute(text("SELECT VERSION()")).scalar()
+        print(f"✅ Connected to CUBRID {version}")
+
+        inspector = inspect(engine)
+        tables = inspector.get_table_names()
+        print(f"✅ Found {len(tables)} tables: {tables[:5]}{'...' if len(tables) > 5 else ''}")
+
+    print("✅ All checks passed")
+except Exception as e:
+    print(f"❌ Failed: {e}")
+    sys.exit(1)
+```
+
+---
+
+*See also: [Connection Guide](CONNECTION.md) · [Type Mapping](TYPES.md) · [DML Extensions](DML_EXTENSIONS.md) · [Alembic](ALEMBIC.md) · [Feature Support](FEATURE_SUPPORT.md)*
+
+---
+
+# Development Guide
+
+Everything you need to set up a development environment, run tests, and
+contribute to sqlalchemy-cubrid.
+
+---
+
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Project Structure](#project-structure)
+- [Make Targets](#make-targets)
+- [Running Tests](#running-tests)
+- [Docker Integration Testing](#docker-integration-testing)
+- [Multi-Version Testing](#multi-version-testing)
+- [Code Coverage](#code-coverage)
+- [Code Style](#code-style)
+- [Pre-Commit Hooks](#pre-commit-hooks)
+- [CI/CD Pipeline](#cicd-pipeline)
+
+---
+
+## Prerequisites
+
+| Requirement | Version |
+|---|---|
+| Python | 3.10+ |
+| Git | any |
+| Docker | any (for integration tests) |
+| Docker Compose | v2+ |
+
+---
+
+## Installation
+
+### Quick Setup
+
+```bash
+git clone https://github.com/cubrid-labs/sqlalchemy-cubrid.git
+cd sqlalchemy-cubrid
+make install
+```
+
+`make install` performs:
+1. `pip install -e ".[dev]"` — editable install with dev dependencies
+2. `pip install pytest-cov pre-commit tox` — test tooling
+3. `pre-commit install` — git hook setup
+
+### Manual Setup
+
+```bash
+# Create and activate a virtual environment
+python3 -m venv venv
+source venv/bin/activate  # Linux/macOS
+# venv\Scripts\activate   # Windows
+
+# Install in editable mode with dev dependencies
+pip install -e ".[dev]"
+
+# Install test coverage and multi-version tools
+pip install pytest-cov tox
+
+# (Optional) Install pre-commit hooks
+pip install pre-commit
+pre-commit install
+```
+
+---
+
+## Project Structure
+
+```mermaid
+graph TD
+    root["sqlalchemy-cubrid/"]
+
+    pkg["sqlalchemy_cubrid/ - Main package"]
+    tests["test/ - Test suite"]
+    docs["docs/ - Documentation"]
+    samples["samples/ - Usage examples"]
+    pyproject["pyproject.toml - Project config, dependencies"]
+    tox["tox.ini - Multi-Python test config"]
+    docker["docker-compose.yml - CUBRID Docker setup"]
+    makefile["Makefile - Development shortcuts"]
+    contributing["CONTRIBUTING.md - Contribution guidelines"]
+
+    root --> pkg
+    root --> tests
+    root --> docs
+    root --> samples
+    root --> pyproject
+    root --> tox
+    root --> docker
+    root --> makefile
+    root --> contributing
+
+    pkg --> init["__init__.py - Public API, version, type exports"]
+    pkg --> base["base.py - ExecutionContext, IdentifierPreparer"]
+    pkg --> compiler["compiler.py - SQL/DDL/Type compilers"]
+    pkg --> dialect["dialect.py - CubridDialect (reflection, connection, etc.)"]
+    pkg --> dml["dml.py - ON DUPLICATE KEY UPDATE, MERGE constructs"]
+    pkg --> types["types.py - CUBRID type system"]
+    pkg --> req["requirements.py - SA 2.0 test requirement flags"]
+    pkg --> alembic["alembic_impl.py - Alembic migration support"]
+    pkg --> typed["py.typed - PEP 561 marker"]
+
+    tests --> tcomp["test_compiler.py - SQL compilation tests"]
+    tests --> ttypes["test_types.py - Type system tests"]
+    tests --> tdialect["test_dialect_offline.py - Dialect tests (no DB)"]
+    tests --> tbase["test_base.py - Base module tests"]
+    tests --> treq["test_requirements.py - SA requirement flag tests"]
+    tests --> tdml["test_dml.py - DML construct tests"]
+    tests --> talembic["test_alembic.py - Alembic integration tests"]
+    tests --> tintegration["test_integration.py - Live DB integration tests"]
+    tests --> tsuite["test_suite.py - SA test suite runner"]
+    tests --> tconftest["conftest.py - Test fixtures"]
+```
+
+---
+
+## Make Targets
+
+All common development tasks are available via `make`:
+
+```bash
+make help          # Show all available targets
+make install       # Install in dev mode with all dependencies
+make lint          # Run ruff linter + format checks
+make format        # Auto-fix lint issues and format code
+make test          # Run offline tests with coverage (95% threshold)
+make test-all      # Run tox across all Python versions
+make integration   # Start Docker → run integration tests → stop Docker
+make docker-up     # Start CUBRID Docker container
+make docker-down   # Stop and remove CUBRID Docker container
+make clean         # Remove build artifacts and caches
+```
+
+---
+
+## Running Tests
+
+### Offline Tests (No Database Required)
+
+The majority of the test suite runs without a live CUBRID instance:
+
+```bash
+# Run all offline tests
+pytest test/ -v --ignore=test/test_integration.py --ignore=test/test_suite.py
+
+# Run with coverage report
+pytest test/ -v --ignore=test/test_integration.py --ignore=test/test_suite.py \
+  --cov=sqlalchemy_cubrid --cov-report=term-missing
+
+# Run a specific test file
+pytest test/test_compiler.py -v
+
+# Run a single test
+pytest test/test_compiler.py::TestCubridSQLCompiler::test_select_limit -v
+```
+
+### Integration Tests (Requires CUBRID)
+
+```bash
+# Start a CUBRID container
+docker compose up -d
+
+# Wait for CUBRID to be ready (healthcheck: ~30s)
+docker compose logs -f cubrid
+
+# Set the connection URL
+export CUBRID_TEST_URL="cubrid://dba@localhost:33000/testdb"
+
+# Run integration tests
+pytest test/test_integration.py -v
+
+# Stop the container
+docker compose down -v
+```
+
+### Full SA Test Suite
+
+```bash
+# Requires a running CUBRID instance
+pytest --dburi cubrid://dba@localhost:33000/testdb
+```
+
+---
+
+## Docker Integration Testing
+
+### docker-compose.yml
+
+The project includes a `docker-compose.yml` for local CUBRID instances:
+
+```yaml
+services:
+  cubrid:
+    image: cubrid/cubrid:${CUBRID_VERSION:-11.2}
+    environment:
+      CUBRID_DB: testdb
+    ports:
+      - "33000:33000"
+    healthcheck:
+      test: ["CMD", "csql", "-u", "dba", "testdb", "-c", "SELECT 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+```
+
+### Testing Against Different CUBRID Versions
+
+```bash
+# Default (11.2)
+docker compose up -d
+
+# Specific version
+CUBRID_VERSION=11.4 docker compose up -d
+CUBRID_VERSION=11.0 docker compose up -d
+CUBRID_VERSION=10.2 docker compose up -d
+```
+
+### Supported CUBRID Versions
+
+| Version | Docker Image |
+|---|---|
+| 11.4 | `cubrid/cubrid:11.4` |
+| 11.2 | `cubrid/cubrid:11.2` (default) |
+| 11.0 | `cubrid/cubrid:11.0` |
+| 10.2 | `cubrid/cubrid:10.2` |
+
+### Quick Integration Workflow
+
+```bash
+# One-command: start, test, stop
+make integration
+```
+
+---
+
+## Multi-Version Testing
+
+### tox Configuration
+
+The `tox.ini` defines environments for Python 3.10–3.13:
+
+```ini
+[tox]
+envlist = lint, py310, py311, py312, py313
+skip_missing_interpreters = true
+```
+
+### Running tox
+
+```bash
+# Install tox
+pip install tox
+
+# Run all environments
+tox
+
+# Run a specific Python version
+tox -e py312
+
+# Run lint checks only
+tox -e lint
+```
+
+### CI Matrix
+
+The CI pipeline tests the following matrix:
+
+| | Python 3.10 | Python 3.11 | Python 3.12 | Python 3.13 |
+|---|:---:|:---:|:---:|:---:|
+| **Offline Tests** | ✅ | ✅ | ✅ | ✅ |
+| **CUBRID 11.4** | ✅ | — | ✅ | — |
+| **CUBRID 11.2** | ✅ | — | ✅ | — |
+| **CUBRID 11.0** | ✅ | — | ✅ | — |
+| **CUBRID 10.2** | ✅ | — | ✅ | — |
+
+---
+
+## Code Coverage
+
+### Requirements
+
+- **Minimum threshold**: 95% line coverage
+- **Current coverage**: 99.45% (396 tests, 1082 statements, 6 unreachable)
+- CI enforces the threshold via `--cov-fail-under=95`
+
+### Running Coverage
+
+```bash
+# With coverage report
+pytest test/ -v \
+  --ignore=test/test_integration.py \
+  --ignore=test/test_suite.py \
+  --cov=sqlalchemy_cubrid \
+  --cov-report=term-missing \
+  --cov-fail-under=95
+
+# Or via make
+make test
+```
+
+### Known Unreachable Lines
+
+Three lines in `compiler.py` and one in `dml.py` are verified unreachable by design (defensive fallbacks that
+cannot trigger through SA's public API):
+
+| File | Line | Description |
+|---|---|---|
+| `compiler.py` | 72 | `for_update_clause` returning `""` |
+| `compiler.py` | 84 | `limit_clause` returning `""` |
+| `compiler.py` | 298--300 | Defensive branch in DDL compilation |
+| `dml.py` | 310 | `else` branch in type normalization |
+
+---
+
+## Code Style
+
+### Ruff
+
+This project uses [Ruff](https://docs.astral.sh/ruff/) for both linting and
+formatting.
+
+| Setting | Value |
+|---|---|
+| Line length | 100 characters |
+| Target Python | 3.10+ |
+| Linter | `ruff check` |
+| Formatter | `ruff format` |
+
+### Running Checks
+
+```bash
+# Lint check
+ruff check sqlalchemy_cubrid/ test/
+
+# Auto-fix lint issues
+ruff check --fix sqlalchemy_cubrid/ test/
+
+# Format check
+ruff format --check sqlalchemy_cubrid/ test/
+
+# Apply formatting
+ruff format sqlalchemy_cubrid/ test/
+
+# All checks via make
+make lint
+```
+
+---
+
+## Pre-Commit Hooks
+
+Pre-commit hooks run lint and format checks automatically on `git commit`.
+
+### Setup
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+### Manual Run
+
+```bash
+# Run all hooks on all files
+pre-commit run --all-files
+```
+
+---
+
+## CI/CD Pipeline
+
+### GitHub Actions Workflows
+
+| Workflow | File | Trigger |
+|---|---|---|
+| CI | `.github/workflows/ci.yml` | Push to main, PRs |
+| Publish | `.github/workflows/python-publish.yml` | GitHub Release |
+
+### CI Pipeline Steps
+
+1. **Lint** — Ruff check + format verification
+2. **Offline Tests** — Python 3.10, 3.11, 3.12, 3.13 × offline test suite
+3. **Integration Tests** — Python {3.10, 3.12} × CUBRID {10.2, 11.0, 11.2, 11.4}
+4. **Coverage** — Enforces ≥ 95% threshold
+
+### Publish Pipeline
+
+Triggered on GitHub Release creation. Builds and publishes the package to PyPI.
+
+---
+
+*See also: [Contributing Guide](../CONTRIBUTING.md) · [Feature Support](FEATURE_SUPPORT.md) · [Connection Guide](CONNECTION.md)*
+
+---
+
+# CUBRID-Python Driver Compatibility
+
+This document describes the tested compatibility matrix between `sqlalchemy-cubrid`,
+the CUBRID Python driver (`CUBRIDdb`), and CUBRID server versions.
+
+---
+
+## Table of Contents
+
+- [Driver Overview](#driver-overview)
+- [Version Compatibility Matrix](#version-compatibility-matrix)
+- [Exception Hierarchy](#exception-hierarchy)
+- [Driver API Usage](#driver-api-usage)
+- [Known Issues](#known-issues)
+- [Installation Notes](#installation-notes)
+
+---
+
+## Driver Overview
+
+| Property | Value |
+|---|---|
+| PyPI package | `CUBRID-Python` |
+| Import name | `CUBRIDdb` |
+| Type | C extension (CPython only) |
+| DBAPI level | DB-API 2.0 (PEP 249) |
+| Parameter style | `qmark` |
+| Source | [github.com/CUBRID/cubrid-python](https://github.com/CUBRID/cubrid-python) |
+
+The driver wraps the CUBRID CCI (C Client Interface) library. It is **not** a pure
+Python driver and requires compilation against the CCI headers.
+
+---
+
+## Version Compatibility Matrix
+
+### Tested Configurations
+
+| sqlalchemy-cubrid | CUBRID-Python Driver | CUBRID Server | Python | Status |
+|---|---|---|---|---|
+| 0.4.0 | v11.3.0.51 | 11.4 | 3.10 – 3.14 | ✅ Tested in CI |
+| 0.4.0 | v11.3.0.51 | 11.2 | 3.10 – 3.14 | ✅ Tested in CI |
+| 0.4.0 | v11.3.0.51 | 11.0 | 3.10 – 3.14 | ✅ Tested in CI |
+| 0.4.0 | v11.3.0.51 | 10.2 | 3.10 – 3.14 | ✅ Tested in CI |
+| 0.3.x | v11.3.0.51 | 10.2 – 11.4 | 3.10 – 3.13 | ✅ Tested |
+
+### CUBRID Server Version Support
+
+| Server Version | Driver Version | Notes |
+|---|---|---|
+| 11.4 | v11.3.0.51 | Latest stable |
+| 11.2 | v11.3.0.51 | LTS release |
+| 11.0 | v11.3.0.51 | Legacy support |
+| 10.2 | v11.3.0.51 | Minimum supported |
+| 12.x | — | Not yet released; will be tested when available |
+
+### Python Version Support
+
+| Python | Status | Notes |
+|---|---|---|
+| 3.10 | ✅ Fully supported | Minimum version |
+| 3.11 | ✅ Fully supported | |
+| 3.12 | ✅ Fully supported | |
+| 3.13 | ✅ Fully supported | |
+| 3.14 | 🔄 CI matrix added | Pre-release; depends on driver C extension compatibility |
+
+---
+
+## Exception Hierarchy
+
+CUBRIDdb exposes a **limited** exception hierarchy compared to PEP 249:
+
+```mermaid
+graph TD
+    base["BaseException"] --> exc["Exception"]
+    exc --> err["CUBRIDdb.Error (Base DBAPI error)"]
+    err --> iface["CUBRIDdb.InterfaceError (Driver-level errors)"]
+    err --> db["CUBRIDdb.DatabaseError (Server-level errors)"]
+    err --> ns["CUBRIDdb.NotSupportedError (Unsupported operations)"]
+```
+
+**Missing PEP 249 exceptions** (not provided by the driver):
+- `OperationalError` — subsumed by `DatabaseError`
+- `ProgrammingError` — subsumed by `DatabaseError`
+- `InternalError` — subsumed by `DatabaseError`
+- `DataError` — subsumed by `DatabaseError`
+- `IntegrityError` — subsumed by `DatabaseError`
+
+This means all database-level errors (constraint violations, syntax errors, connection
+issues) are raised as `DatabaseError`. The `sqlalchemy-cubrid` dialect uses
+**string-based message matching** to distinguish disconnect errors from other failures.
+
+---
+
+## Driver API Usage
+
+The dialect relies on these driver-specific APIs:
+
+### Connection Methods
+
+| Method | Purpose | Used by |
+|---|---|---|
+| `conn.ping()` | Check connection liveness | `CubridDialect.do_ping()` |
+| `conn.get_last_insert_id()` | Get auto-increment value | `CubridExecutionContext.get_lastrowid()` |
+| `conn.set_autocommit(bool)` | Control autocommit | `CubridDialect.on_connect()` |
+| `conn.cursor()` | Create cursor | Standard DB-API |
+
+### Error Code Extraction
+
+```python
+# Error codes are in exception.args[0]
+try:
+    cursor.execute("invalid sql")
+except CUBRIDdb.DatabaseError as e:
+    code = e.args[0]  # int or str
+```
+
+The dialect's `_extract_error_code()` handles both integer codes and string-embedded
+codes (e.g., `"-21003 Cannot communicate with broker"`).
+
+---
+
+## Known Issues
+
+### 1. No `OperationalError` for Disconnect Detection
+
+Since the driver doesn't provide `OperationalError`, the dialect cannot use
+`isinstance(e, dbapi.OperationalError)` like MySQL dialects do. Instead, it uses:
+- String pattern matching against 14 known disconnect messages
+- Numeric error code matching for CCI communication errors
+
+### 2. CCI Library Dependency
+
+The driver requires the CCI library to be compiled from source. In CI, this is handled by:
+```bash
+git clone --branch v11.3.0.51 --depth 1 https://github.com/CUBRID/cubrid-python.git
+cd cubrid-python/cci-src && mkdir build_x86_64_release && cd build_x86_64_release
+cmake ../ && make -j$(nproc)
+```
+
+### 3. `cursor.lastrowid` Not Available
+
+The standard DB-API `cursor.lastrowid` attribute is not implemented. The dialect
+uses `connection.get_last_insert_id()` instead, with a `SELECT LAST_INSERT_ID()`
+SQL fallback.
+
+### 4. CUBRID 12.x Compatibility
+
+CUBRID 12 has not yet been released. When available, the driver and dialect will be
+tested and the CI matrix updated. Potential concerns:
+- CCI API changes may require driver recompilation
+- New SQL features may need compiler updates
+- New data types may need type mapping additions
+
+---
+
+## Installation Notes
+
+### From Source (Required for CI)
+
+```bash
+# Clone the driver
+git clone --branch v11.3.0.51 --depth 1 \
+  https://github.com/CUBRID/cubrid-python.git
+
+# Build CCI library
+cd cubrid-python/cci-src
+mkdir -p build_x86_64_release && cd build_x86_64_release
+cmake ../ && make -j$(nproc)
+
+# Install
+cd /path/to/cubrid-python
+pip install .
+```
+
+### Verify Installation
+
+```python
+import CUBRIDdb
+print(CUBRIDdb.__version__)  # Should print version string
+```
+
+---
+
+*See also: [Connection Guide](CONNECTION.md) · [Development](DEVELOPMENT.md) · [Feature Support](FEATURE_SUPPORT.md)*
