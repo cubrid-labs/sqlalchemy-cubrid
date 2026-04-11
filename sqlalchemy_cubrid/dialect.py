@@ -427,7 +427,9 @@ class CubridDialect(default.DefaultDialect):
         return [row[0] for row in result]
 
     @reflection.cache
-    def get_view_definition(self, connection: Any, view_name: str, schema: str | None = None, **kw: Any) -> str | None:  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    def get_view_definition(  # type: ignore[override]
+        self, connection: Any, view_name: str, schema: str | None = None, **kw: Any
+    ) -> str | None:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Return the CREATE VIEW definition."""
         quoted = self.identifier_preparer.quote_identifier(view_name)
         result = connection.execute(text(f"SHOW CREATE VIEW {quoted}"))
@@ -664,7 +666,9 @@ class CubridDialect(default.DefaultDialect):
             return self._ISOLATION_LEVEL_REVERSE.get(val, str(val))
         return str(val)
 
-    def get_isolation_level_values(self, dbapi_conn: DBAPIConnection | None = None) -> Sequence[str]:  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    def get_isolation_level_values(  # type: ignore[override]
+        self, dbapi_conn: DBAPIConnection | None = None
+    ) -> Sequence[str]:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Return the list of valid isolation level values."""
         del dbapi_conn
         return [
