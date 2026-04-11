@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import re
+from typing import Any, cast
 
 from sqlalchemy.engine import default
 from sqlalchemy.sql import compiler
@@ -377,19 +378,19 @@ RESERVED_WORDS = frozenset(
 class CubridIdentifierPreparer(compiler.IdentifierPreparer):
     """Quoting logic for CUBRID identifiers."""
 
-    reserved_words = RESERVED_WORDS
+    reserved_words = set(RESERVED_WORDS)
 
     def __init__(
         self,
-        dialect,
-        initial_quote='"',
-        final_quote=None,
-        escape_quote='"',
-        omit_schema=False,
-    ):
+        dialect: Any,
+        initial_quote: str = '"',
+        final_quote: str | None = None,
+        escape_quote: str = '"',
+        omit_schema: bool = False,
+    ) -> None:
         super().__init__(dialect, initial_quote, final_quote, escape_quote, omit_schema)
 
-    def _quote_free_identifiers(self, *ids):
+    def _quote_free_identifiers(self, *ids: str | None) -> tuple[str, ...]:
         """Unilaterally identifier-quote any number of strings."""
         return tuple(self.quote_identifier(i) for i in ids if i is not None)
 
@@ -397,10 +398,10 @@ class CubridIdentifierPreparer(compiler.IdentifierPreparer):
 class CubridExecutionContext(default.DefaultExecutionContext):
     """Execution context for CUBRID connections."""
 
-    def should_autocommit_text(self, statement):
+    def should_autocommit_text(self, statement: str) -> Any:
         return AUTOCOMMIT_REGEXP.match(statement)
 
-    def get_lastrowid(self):
+    def get_lastrowid(self) -> int:
         """Return the last inserted row ID.
 
         CUBRID's Python driver does not expose ``cursor.lastrowid``.
@@ -411,8 +412,9 @@ class CubridExecutionContext(default.DefaultExecutionContext):
         try:
             # CUBRID Python driver exposes this on the raw connection
             raw_conn = self.root_connection.connection.dbapi_connection
-            if hasattr(raw_conn, "get_last_insert_id"):
-                return raw_conn.get_last_insert_id()
+            if raw_conn is not None and hasattr(raw_conn, "get_last_insert_id"):
+                last_id = raw_conn.get_last_insert_id()
+                return cast(int, None) if last_id is None else int(last_id)  # pyright: ignore[reportInvalidCast]
         except Exception:  # nosec B110 — fallback to SQL when driver lacks method
             pass
 
@@ -425,4 +427,4 @@ class CubridExecutionContext(default.DefaultExecutionContext):
                 return int(row[0])
         finally:
             cursor.close()
-        return None
+        return cast(int, None)  # pyright: ignore[reportInvalidCast]

@@ -13,6 +13,7 @@ See: https://www.cubrid.org/manual/en/11.0/sql/datatype.html
 from __future__ import annotations
 
 import inspect
+from typing import Any, Sequence
 
 from sqlalchemy.sql import sqltypes
 
@@ -25,17 +26,17 @@ from sqlalchemy.sql import sqltypes
 class _NumericType:
     """Base for CUBRID numeric types."""
 
-    def __init__(self, **kw):
+    def __init__(self, **kw: Any) -> None:
         super().__init__(**kw)
 
 
-class _FloatType(_NumericType, sqltypes.Float):
-    def __init__(self, precision=None, **kw):
+class _FloatType(_NumericType, sqltypes.Float[Any]):  # pyright: ignore[reportUnsafeMultipleInheritance]
+    def __init__(self, precision: int | None = None, **kw: Any) -> None:
         super().__init__(precision=precision, **kw)
 
 
 class _IntegerType(_NumericType, sqltypes.Integer):
-    def __init__(self, display_width=None, **kw):
+    def __init__(self, display_width: int | None = None, **kw: Any) -> None:
         self.display_width = display_width
         super().__init__(**kw)
 
@@ -43,12 +44,17 @@ class _IntegerType(_NumericType, sqltypes.Integer):
 class _StringType(sqltypes.String):
     """Base for CUBRID string types."""
 
-    def __init__(self, national=False, values=None, **kw):
+    def __init__(
+        self,
+        national: bool = False,
+        values: Sequence[Any] | None = None,
+        **kw: Any,
+    ) -> None:
         self.national = national
         self.values = values
         super().__init__(**kw)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         try:
             sig = inspect.signature(self.__class__.__init__)
             attributes = [p.name for p in sig.parameters.values() if p.name != "self"]
@@ -84,12 +90,12 @@ class BIGINT(_IntegerType, sqltypes.BIGINT):
     __visit_name__ = "BIGINT"
 
 
-class NUMERIC(_NumericType, sqltypes.NUMERIC):
+class NUMERIC(_NumericType, sqltypes.NUMERIC[Any]):  # pyright: ignore[reportUnsafeMultipleInheritance]
     """CUBRID NUMERIC type."""
 
     __visit_name__ = "NUMERIC"
 
-    def __init__(self, precision=None, scale=None, **kw):
+    def __init__(self, precision: int | None = None, scale: int | None = None, **kw: Any) -> None:
         """Construct a NUMERIC.
 
         :param precision: Total digits in this number.  If scale and precision
@@ -99,12 +105,12 @@ class NUMERIC(_NumericType, sqltypes.NUMERIC):
         super().__init__(precision=precision, scale=scale, **kw)
 
 
-class DECIMAL(_NumericType, sqltypes.DECIMAL):
+class DECIMAL(_NumericType, sqltypes.DECIMAL[Any]):  # pyright: ignore[reportUnsafeMultipleInheritance]
     """CUBRID DECIMAL type."""
 
     __visit_name__ = "DECIMAL"
 
-    def __init__(self, precision=None, scale=None, **kw):
+    def __init__(self, precision: int | None = None, scale: int | None = None, **kw: Any) -> None:
         """Construct a DECIMAL.
 
         :param precision: Total digits in this number.  If scale and precision
@@ -115,12 +121,12 @@ class DECIMAL(_NumericType, sqltypes.DECIMAL):
         super().__init__(precision=precision, scale=scale, **kw)
 
 
-class FLOAT(_FloatType, sqltypes.FLOAT):
+class FLOAT(_FloatType, sqltypes.FLOAT[Any]):  # pyright: ignore[reportUnsafeMultipleInheritance]
     """CUBRID FLOAT type."""
 
     __visit_name__ = "FLOAT"
 
-    def __init__(self, precision=7, **kw):
+    def __init__(self, precision: int | None = 7, **kw: Any) -> None:
         """Construct a FLOAT.
 
         :param precision: Defaults to 7.  Total digits in this number.
@@ -128,23 +134,23 @@ class FLOAT(_FloatType, sqltypes.FLOAT):
         """
         super().__init__(precision=precision, **kw)
 
-    def bind_processor(self, dialect):
+    def bind_processor(self, dialect: Any) -> None:
         return None
 
 
-class REAL(_FloatType, sqltypes.FLOAT):
+class REAL(_FloatType, sqltypes.FLOAT[Any]):  # pyright: ignore[reportUnsafeMultipleInheritance]
     """CUBRID REAL type."""
 
     __visit_name__ = "REAL"
 
-    def __init__(self, precision=None, **kw):
+    def __init__(self, precision: int | None = None, **kw: Any) -> None:
         """Construct a REAL.
 
         :param precision: Total digits in this number.
         """
         super().__init__(precision=precision, **kw)
 
-    def bind_processor(self, dialect):
+    def bind_processor(self, dialect: Any) -> None:
         return None
 
 
@@ -165,17 +171,18 @@ class DOUBLE_PRECISION(_FloatType):
 # ---------------------------------------------------------------------------
 
 
-class BIT(sqltypes.TypeEngine):
+class BIT(sqltypes.TypeEngine[Any]):
     """CUBRID BIT type."""
 
     __visit_name__ = "BIT"
 
-    def __init__(self, length=1, varying=False):
+    def __init__(self, length: int | None = 1, varying: bool = False) -> None:
         """Construct a BIT.
 
         :param length: Defaults to 1.  Optional, number of bits.
         :param varying: If True, use BIT VARYING.
         """
+        self.length: int | None
         if not varying:
             self.length = length or 1
         else:
@@ -188,12 +195,12 @@ class BIT(sqltypes.TypeEngine):
 # ---------------------------------------------------------------------------
 
 
-class CHAR(_StringType, sqltypes.CHAR):
+class CHAR(_StringType, sqltypes.CHAR):  # pyright: ignore[reportUnsafeMultipleInheritance]
     """CUBRID CHAR type, for fixed-length character data."""
 
     __visit_name__ = "CHAR"
 
-    def __init__(self, length=None, **kwargs):
+    def __init__(self, length: int | None = None, **kwargs: Any) -> None:
         """Construct a CHAR.
 
         :param length: The number of characters.
@@ -201,12 +208,12 @@ class CHAR(_StringType, sqltypes.CHAR):
         super().__init__(length=length, **kwargs)
 
 
-class VARCHAR(_StringType, sqltypes.VARCHAR):
+class VARCHAR(_StringType, sqltypes.VARCHAR):  # pyright: ignore[reportUnsafeMultipleInheritance]
     """CUBRID VARCHAR type, for variable-length character data."""
 
     __visit_name__ = "VARCHAR"
 
-    def __init__(self, length=None, **kwargs):
+    def __init__(self, length: int | None = None, **kwargs: Any) -> None:
         """Construct a VARCHAR.
 
         :param length: The number of characters.
@@ -214,7 +221,7 @@ class VARCHAR(_StringType, sqltypes.VARCHAR):
         super().__init__(length=length, **kwargs)
 
 
-class NCHAR(_StringType, sqltypes.NCHAR):
+class NCHAR(_StringType, sqltypes.NCHAR):  # pyright: ignore[reportUnsafeMultipleInheritance]
     """CUBRID NCHAR type.
 
     For fixed-length character data in the server's configured national
@@ -223,7 +230,7 @@ class NCHAR(_StringType, sqltypes.NCHAR):
 
     __visit_name__ = "NCHAR"
 
-    def __init__(self, length=None, **kwargs):
+    def __init__(self, length: int | None = None, **kwargs: Any) -> None:
         """Construct a NCHAR.
 
         :param length: The number of characters.
@@ -232,7 +239,7 @@ class NCHAR(_StringType, sqltypes.NCHAR):
         super().__init__(length=length, **kwargs)
 
 
-class NVARCHAR(_StringType, sqltypes.NVARCHAR):
+class NVARCHAR(_StringType, sqltypes.NVARCHAR):  # pyright: ignore[reportUnsafeMultipleInheritance]
     """CUBRID NVARCHAR type.
 
     For variable-length character data in the server's configured national
@@ -241,7 +248,7 @@ class NVARCHAR(_StringType, sqltypes.NVARCHAR):
 
     __visit_name__ = "NVARCHAR"
 
-    def __init__(self, length=None, **kwargs):
+    def __init__(self, length: int | None = None, **kwargs: Any) -> None:
         """Construct a NVARCHAR.
 
         :param length: The number of characters.
@@ -260,7 +267,7 @@ class STRING(_StringType):
 
     __visit_name__ = "STRING"
 
-    def __init__(self, length=None, national=False, **kwargs):
+    def __init__(self, length: int | None = None, national: bool = False, **kwargs: Any) -> None:
         super().__init__(length=length, **kwargs)
 
 
@@ -291,7 +298,7 @@ class SET(_StringType):
 
     __visit_name__ = "SET"
 
-    def __init__(self, *values, **kw):
+    def __init__(self, *values: Any, **kw: Any) -> None:
         """Construct a SET."""
         self._ddl_values = values
         super().__init__(**kw)
@@ -302,7 +309,7 @@ class MULTISET(_StringType):
 
     __visit_name__ = "MULTISET"
 
-    def __init__(self, *values, **kw):
+    def __init__(self, *values: Any, **kw: Any) -> None:
         """Construct a MULTISET."""
         self._ddl_values = values
         super().__init__(**kw)
@@ -313,7 +320,7 @@ class SEQUENCE(_StringType):
 
     __visit_name__ = "SEQUENCE"
 
-    def __init__(self, *values, **kw):
+    def __init__(self, *values: Any, **kw: Any) -> None:
         """Construct a SEQUENCE."""
         self._ddl_values = values
         super().__init__(**kw)
@@ -324,7 +331,7 @@ class SEQUENCE(_StringType):
 # ---------------------------------------------------------------------------
 
 
-class MONETARY(sqltypes.TypeEngine):
+class MONETARY(sqltypes.TypeEngine[Any]):
     """CUBRID MONETARY type.
 
     Stores monetary values with currency.  Internally represented as a
@@ -339,7 +346,7 @@ class MONETARY(sqltypes.TypeEngine):
 # ---------------------------------------------------------------------------
 
 
-class OBJECT(sqltypes.TypeEngine):
+class OBJECT(sqltypes.TypeEngine[Any]):
     """CUBRID OBJECT type.
 
     Represents a reference to another CUBRID class instance (OID).

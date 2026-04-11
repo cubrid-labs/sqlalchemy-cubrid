@@ -79,7 +79,7 @@ class Insert(StandardInsert):
         :param *args: A dictionary or list of 2-tuples as a single positional argument.
         """
         arg_values = list(args)
-        values = kw
+        values: _UpdateArg = dict(kw)
 
         if arg_values and kw:
             raise exc.ArgumentError("Can't pass kwargs and positional arguments simultaneously")
@@ -88,7 +88,7 @@ class Insert(StandardInsert):
                 raise exc.ArgumentError(
                     "Only a single dictionary or list of tuples is accepted positionally."
                 )
-            values = next(iter(arg_values), kw)
+            values = arg_values[0]
 
         self._post_values_clause = OnDuplicateClause(self.inserted_alias, values)
         return self

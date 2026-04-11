@@ -15,8 +15,14 @@ Reference: https://github.com/sqlalchemy/sqlalchemy/blob/main/README.dialects.rs
 
 from __future__ import annotations
 
+from typing import Final
+
 from sqlalchemy.testing import exclusions
+from sqlalchemy.testing.exclusions import compound
 from sqlalchemy.testing.requirements import SuiteRequirements
+
+_OPEN: Final[compound] = exclusions.open()  # type: ignore[no-untyped-call]
+_CLOSED: Final[compound] = exclusions.closed()  # type: ignore[no-untyped-call]
 
 
 class Requirements(SuiteRequirements):
@@ -25,246 +31,246 @@ class Requirements(SuiteRequirements):
     # ----- RETURNING -----
 
     @property
-    def returning(self):
+    def returning(self) -> compound:
         """CUBRID does not support INSERT/UPDATE/DELETE … RETURNING."""
-        return exclusions.closed()
+        return _CLOSED
 
     @property
-    def insert_returning(self):
-        return exclusions.closed()
+    def insert_returning(self) -> compound:
+        return _CLOSED
 
     @property
-    def update_returning(self):
-        return exclusions.closed()
+    def update_returning(self) -> compound:
+        return _CLOSED
 
     @property
-    def delete_returning(self):
-        return exclusions.closed()
+    def delete_returning(self) -> compound:
+        return _CLOSED
 
     # ----- Booleans -----
 
     @property
-    def nullable_booleans(self):
+    def nullable_booleans(self) -> compound:
         """CUBRID maps BOOLEAN to SMALLINT which is nullable."""
-        return exclusions.open()
+        return _OPEN
 
     @property
-    def non_native_boolean_unconstrained(self):
+    def non_native_boolean_unconstrained(self) -> compound:
         """The SMALLINT emulation has no CHECK constraint."""
-        return exclusions.open()
+        return _OPEN
 
     # ----- Sequences -----
 
     @property
-    def sequences(self):
+    def sequences(self) -> compound:
         """CUBRID does not support sequences."""
-        return exclusions.closed()
+        return _CLOSED
 
     @property
-    def sequences_optional(self):
-        return exclusions.closed()
+    def sequences_optional(self) -> compound:
+        return _CLOSED
 
     # ----- Schema / DDL -----
 
     @property
-    def schemas(self):
+    def schemas(self) -> compound:
         """CUBRID does not support multiple schemas."""
-        return exclusions.closed()
+        return _CLOSED
 
     @property
-    def temp_table_names(self):
-        return exclusions.closed()
+    def temp_table_names(self) -> compound:
+        return _CLOSED
 
     @property
-    def temporary_tables(self):
-        return exclusions.closed()
+    def temporary_tables(self) -> compound:
+        return _CLOSED
 
     @property
-    def temporary_views(self):
-        return exclusions.closed()
+    def temporary_views(self) -> compound:
+        return _CLOSED
 
     @property
-    def table_ddl_if_exists(self):
+    def table_ddl_if_exists(self) -> compound:
         """CUBRID supports IF NOT EXISTS / IF EXISTS in DDL."""
-        return exclusions.open()
+        return _OPEN
 
     @property
-    def comment_reflection(self):
+    def comment_reflection(self) -> compound:
         """CUBRID supports table and column comments."""
-        return exclusions.open()
+        return _OPEN
 
     @property
-    def check_constraint_reflection(self):
-        return exclusions.closed()
+    def check_constraint_reflection(self) -> compound:
+        return _CLOSED
 
     # ----- DML -----
 
     @property
-    def empty_inserts(self):
+    def empty_inserts(self) -> compound:
         """CUBRID supports INSERT INTO t DEFAULT VALUES."""
-        return exclusions.open()
+        return _OPEN
 
     @property
-    def insert_from_select(self):
-        return exclusions.open()
+    def insert_from_select(self) -> compound:
+        return _OPEN
 
     @property
-    def ctes(self):
+    def ctes(self) -> compound:
         """CUBRID 11 supports CTEs."""
-        return exclusions.open()
+        return _OPEN
 
     @property
-    def ctes_on_dml(self):
-        return exclusions.closed()
+    def ctes_on_dml(self) -> compound:
+        return _CLOSED
 
     # ----- SELECT features -----
 
     @property
-    def window_functions(self):
+    def window_functions(self) -> compound:
         """CUBRID supports window functions (ROW_NUMBER, RANK, etc.) with OVER()."""
-        return exclusions.open()
+        return _OPEN
 
     @property
-    def intersect(self):
-        return exclusions.open()
+    def intersect(self) -> compound:
+        return _OPEN
 
     @property
-    def except_(self):
-        return exclusions.open()
+    def except_(self) -> compound:
+        return _OPEN
 
     @property
-    def fetch_no_order(self):
-        return exclusions.open()
+    def fetch_no_order(self) -> compound:
+        return _OPEN
 
     @property
-    def order_by_col_from_union(self):
-        return exclusions.open()
+    def order_by_col_from_union(self) -> compound:
+        return _OPEN
 
     # ----- Type support -----
 
     @property
-    def unicode_ddl(self):
-        return exclusions.open()
+    def unicode_ddl(self) -> compound:
+        return _OPEN
 
     @property
-    def datetime_literals(self):
-        return exclusions.closed()
+    def datetime_literals(self) -> compound:
+        return _CLOSED
 
     @property
-    def date(self):
-        return exclusions.open()
+    def date(self) -> compound:
+        return _OPEN
 
     @property
-    def time(self):
-        return exclusions.open()
+    def time(self) -> compound:
+        return _OPEN
 
     @property
-    def datetime(self):
-        return exclusions.open()
+    def datetime(self) -> compound:
+        return _OPEN
 
     @property
-    def timestamp(self):
-        return exclusions.open()
+    def timestamp(self) -> compound:
+        return _OPEN
 
     @property
-    def text_type(self):
-        return exclusions.open()
+    def text_type(self) -> compound:
+        return _OPEN
 
     @property
-    def json_type(self):
+    def json_type(self) -> compound:
         """CUBRID does not support JSON type."""
-        return exclusions.closed()
+        return _CLOSED
 
     @property
-    def array_type(self):
-        return exclusions.closed()
+    def array_type(self) -> compound:
+        return _CLOSED
 
     @property
-    def uuid_data_type(self):
-        return exclusions.closed()
+    def uuid_data_type(self) -> compound:
+        return _CLOSED
 
     # ----- Misc -----
 
     @property
-    def views(self):
-        return exclusions.open()
+    def views(self) -> compound:
+        return _OPEN
 
     @property
-    def savepoints(self):
-        return exclusions.open()
+    def savepoints(self) -> compound:
+        return _OPEN
 
     @property
-    def foreign_keys(self):
-        return exclusions.open()
+    def foreign_keys(self) -> compound:
+        return _OPEN
 
     @property
-    def self_referential_foreign_keys(self):
-        return exclusions.open()
+    def self_referential_foreign_keys(self) -> compound:
+        return _OPEN
 
     @property
-    def unique_constraint_reflection(self):
-        return exclusions.open()
+    def unique_constraint_reflection(self) -> compound:
+        return _OPEN
 
     @property
-    def foreign_key_constraint_reflection(self):
-        return exclusions.open()
+    def foreign_key_constraint_reflection(self) -> compound:
+        return _OPEN
 
     @property
-    def index_reflection(self):
-        return exclusions.open()
+    def index_reflection(self) -> compound:
+        return _OPEN
 
     @property
-    def primary_key_constraint_reflection(self):
-        return exclusions.open()
+    def primary_key_constraint_reflection(self) -> compound:
+        return _OPEN
 
     @property
-    def on_update_cascade(self):
-        return exclusions.open()
+    def on_update_cascade(self) -> compound:
+        return _OPEN
 
     @property
-    def on_delete_cascade(self):
-        return exclusions.open()
+    def on_delete_cascade(self) -> compound:
+        return _OPEN
 
     @property
-    def server_side_cursors(self):
-        return exclusions.closed()
+    def server_side_cursors(self) -> compound:
+        return _CLOSED
 
     @property
-    def independent_connections(self):
-        return exclusions.open()
+    def independent_connections(self) -> compound:
+        return _OPEN
 
     # ----- Binary / LOB -----
 
     @property
-    def binary_comparisons(self):
+    def binary_comparisons(self) -> compound:
         """CUBRID BLOB roundtrip has driver-level issues."""
-        return exclusions.closed()
+        return _CLOSED
 
     @property
-    def binary_literals(self):
+    def binary_literals(self) -> compound:
         """CUBRID does not support binary literal syntax."""
-        return exclusions.closed()
+        return _CLOSED
 
     # ----- Identifier quoting -----
 
     @property
-    def unusual_column_name_characters(self):
+    def unusual_column_name_characters(self) -> compound:
         """CUBRID has limited support for special characters in identifiers."""
-        return exclusions.closed()
+        return _CLOSED
 
     @property
-    def implicitly_named_constraints(self):
+    def implicitly_named_constraints(self) -> compound:
         """CUBRID FK reflection has issues with special-character table names."""
-        return exclusions.closed()
+        return _CLOSED
 
     # ----- SELECT FOR UPDATE -----
 
     @property
-    def update_nowait(self):
+    def update_nowait(self) -> compound:
         """CUBRID does not support SELECT ... FOR UPDATE NOWAIT."""
-        return exclusions.closed()
+        return _CLOSED
 
     @property
-    def for_update(self):
+    def for_update(self) -> compound:
         """CUBRID supports SELECT ... FOR UPDATE [OF col1, col2]."""
-        return exclusions.open()
+        return _OPEN
