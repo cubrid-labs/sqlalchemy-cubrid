@@ -1,6 +1,6 @@
 # sqlalchemy-cubrid
 
-**CUBRID-Dialekt für SQLAlchemy 2.0+**
+**CUBRID-Dialekt für SQLAlchemy 2.0–2.1**
 
 [🇰🇷 한국어](README.ko.md) · [🇺🇸 English](../README.md) · [🇨🇳 中文](README.zh.md) · [🇮🇳 हिन्दी](README.hi.md) · [🇩🇪 Deutsch](README.de.md) · [🇷🇺 Русский](README.ru.md)
 
@@ -17,13 +17,13 @@
 
 CUBRID ist eine leistungsstarke relationale Open-Source-Datenbank, die in koreanischen
 Behörden und Unternehmensanwendungen weit verbreitet ist. Bisher gab es keinen
-produktionsreifen SQLAlchemy-Dialekt, der die moderne 2.0-API unterstützt.
+produktionsreifen SQLAlchemy-Dialekt, der die moderne 2.0–2.1-API unterstützt.
 
 **sqlalchemy-cubrid** schließt diese Lücke:
 
-- Vollständiger SQLAlchemy 2.0 Dialekt mit **Statement-Caching** und **PEP 561 Typisierung**
+- Vollständiger SQLAlchemy 2.0–2.1 Dialekt mit **Statement-Caching** und **PEP 561 Typisierung**
 - **396 Offline-Tests** mit **99,45% Codeabdeckung** — keine Datenbank zum Ausführen erforderlich
-- Getestet mit **4 CUBRID-Versionen** (10.2, 11.0, 11.2, 11.4) auf **Python 3.10 -- 3.13**
+- Getestet mit **4 CUBRID-Versionen** (10.2, 11.0, 11.2, 11.4) auf **Python 3.10 -- 3.14**
 - CUBRID-spezifische DML-Konstrukte: `ON DUPLICATE KEY UPDATE`, `MERGE`, `REPLACE INTO`
 - Alembic-Migrationsunterstützung direkt einsatzbereit
 

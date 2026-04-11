@@ -1,6 +1,6 @@
 # sqlalchemy-cubrid
 
-**SQLAlchemy 2.0 dialect for the CUBRID database** — Python ORM, schema reflection, Alembic migrations, and full type system support.
+**SQLAlchemy 2.0–2.1 dialect for the CUBRID database** — Python ORM, schema reflection, Alembic migrations, and full type system support.
 
 [🇰🇷 한국어](docs/README.ko.md) · [🇺🇸 English](README.md) · [🇨🇳 中文](docs/README.zh.md) · [🇮🇳 हिन्दी](docs/README.hi.md) · [🇩🇪 Deutsch](docs/README.de.md) · [🇷🇺 Русский](docs/README.ru.md)
 
@@ -20,13 +20,13 @@
 
 CUBRID is a high-performance open-source relational database, widely adopted in
 Korean public-sector and enterprise applications. Until now, there was no
-production-ready SQLAlchemy dialect that supports the modern 2.0 API.
+production-ready SQLAlchemy dialect that supports the modern 2.0–2.1 API.
 
 **sqlalchemy-cubrid** bridges that gap:
 
-- Full SQLAlchemy 2.0 dialect with **statement caching** and **PEP 561 typing**
+- Full SQLAlchemy 2.0–2.1 dialect with **statement caching** and **PEP 561 typing**
 - **426 offline tests** with **99%+ code coverage** — no database required to run them
-- Tested against **4 CUBRID versions** (10.2, 11.0, 11.2, 11.4) across **Python 3.10 -- 3.13**
+- Tested against **4 CUBRID versions** (10.2, 11.0, 11.2, 11.4) across **Python 3.10 -- 3.14**
 - CUBRID-specific DML constructs: `ON DUPLICATE KEY UPDATE`, `MERGE`, `REPLACE INTO`
 - Alembic migration support out of the box
 - **Two driver options** — C-extension (`cubrid://`) or pure Python (`cubrid+pycubrid://`)
@@ -139,15 +139,14 @@ with Session(engine) as session:
 | [Driver Compatibility](docs/DRIVER_COMPAT.md) | CUBRID-Python driver versions and known issues |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | Common issues, error solutions, debugging techniques |
 
-## Compatibility
+## Compatibility Matrix
 
-| | Python 3.10 | Python 3.11 | Python 3.12 | Python 3.13 |
-|---|:---:|:---:|:---:|:---:|
-| **Offline Tests** | ✅ | ✅ | ✅ | ✅ |
-| **CUBRID 11.4** | ✅ | -- | ✅ | -- |
-| **CUBRID 11.2** | ✅ | -- | ✅ | -- |
-| **CUBRID 11.0** | ✅ | -- | ✅ | -- |
-| **CUBRID 10.2** | ✅ | -- | ✅ | -- |
+| Component | Supported versions |
+|---|---|
+| Python | 3.10, 3.11, 3.12, 3.13, 3.14 |
+| CUBRID | 10.2, 11.0, 11.2, 11.4 |
+| SQLAlchemy | 2.0–2.1 |
+| Alembic | >=1.7 |
 
 ## FAQ
 
@@ -160,9 +159,9 @@ engine = create_engine("cubrid://dba:password@localhost:33000/demodb")
 
 For the pure Python driver (no C build needed): `create_engine("cubrid+pycubrid://dba@localhost:33000/demodb")`
 
-### Does sqlalchemy-cubrid support SQLAlchemy 2.0?
+### Does sqlalchemy-cubrid support SQLAlchemy 2.0–2.1?
 
-Yes. sqlalchemy-cubrid is built for SQLAlchemy 2.0+ and supports the new 2.0-style API including `Session.execute()`, typed `Mapped[]` columns, and statement caching.
+Yes. sqlalchemy-cubrid is built for SQLAlchemy 2.0–2.1 and supports the 2.0-style API including `Session.execute()`, typed `Mapped[]` columns, and statement caching.
 
 ### Does sqlalchemy-cubrid support Alembic migrations?
 
@@ -170,7 +169,7 @@ Yes. Install with `pip install "sqlalchemy-cubrid[alembic]"`. The dialect auto-r
 
 ### What Python versions are supported?
 
-Python 3.10, 3.11, 3.12, and 3.13.
+Python 3.10, 3.11, 3.12, 3.13, and 3.14.
 
 ### Does CUBRID support RETURNING clauses?
 

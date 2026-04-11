@@ -1,6 +1,6 @@
 # sqlalchemy-cubrid
 
-**SQLAlchemy 2.0+ 的 CUBRID 数据库方言**
+**SQLAlchemy 2.0–2.1 的 CUBRID 数据库方言**
 
 [🇰🇷 한국어](README.ko.md) · [🇺🇸 English](../README.md) · [🇨🇳 中文](README.zh.md) · [🇮🇳 हिन्दी](README.hi.md) · [🇩🇪 Deutsch](README.de.md) · [🇷🇺 Русский](README.ru.md)
 
@@ -16,13 +16,13 @@
 ## 为什么选择 sqlalchemy-cubrid？
 
 CUBRID 是一款高性能的开源关系型数据库，在韩国公共部门和企业应用中被广泛采用。
-在此之前，还没有支持现代 SQLAlchemy 2.0 API 的生产级方言。
+在此之前，还没有支持现代 SQLAlchemy 2.0–2.1 API 的生产级方言。
 
 **sqlalchemy-cubrid** 填补了这一空白：
 
-- 完整的 SQLAlchemy 2.0 方言，支持**语句缓存**和 **PEP 561 类型标注**
+- 完整的 SQLAlchemy 2.0–2.1 方言，支持**语句缓存**和 **PEP 561 类型标注**
 - **396 个离线测试**，**99.45% 代码覆盖率** — 无需数据库即可运行
-- 在 **Python 3.10 -- 3.13** 上测试了 **4 个 CUBRID 版本**（10.2、11.0、11.2、11.4）
+- 在 **Python 3.10 -- 3.14** 上测试了 **4 个 CUBRID 版本**（10.2、11.0、11.2、11.4）
 - CUBRID 特有的 DML 构造：`ON DUPLICATE KEY UPDATE`、`MERGE`、`REPLACE INTO`
 - 开箱即用的 Alembic 迁移支持
 

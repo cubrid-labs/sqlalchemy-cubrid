@@ -9,6 +9,10 @@
 
 from __future__ import annotations
 
+from typing import Any, Callable, cast
+
+from sqlalchemy.engine.interfaces import DBAPIConnection, DBAPIModule, ConnectArgsType
+from sqlalchemy.engine.url import URL
 
 from sqlalchemy_cubrid.base import CubridExecutionContext
 from sqlalchemy_cubrid.dialect import CubridDialect
@@ -21,10 +25,11 @@ class PyCubridExecutionContext(CubridExecutionContext):
     so we use it directly instead of the CUBRIDdb workaround.
     """
 
-    def get_lastrowid(self):
+    def get_lastrowid(self) -> int:
         """Return the last inserted row ID from pycubrid's cursor."""
         try:
-            return self.cursor.lastrowid
+            lastrowid = self.cursor.lastrowid
+            return cast(int, None) if lastrowid is None else int(lastrowid)  # pyright: ignore[reportInvalidCast]
         except AttributeError:
             pass
 
@@ -37,7 +42,7 @@ class PyCubridExecutionContext(CubridExecutionContext):
                 return int(row[0])
         finally:
             cursor.close()
-        return None
+        return cast(int, None)  # pyright: ignore[reportInvalidCast]
 
 
 class PyCubridDialect(CubridDialect):
@@ -59,20 +64,20 @@ class PyCubridDialect(CubridDialect):
     default_paramstyle = "qmark"
 
     @classmethod
-    def import_dbapi(cls):
+    def import_dbapi(cls) -> DBAPIModule:
         """Import and return the pycubrid DBAPI module."""
         try:
             import pycubrid as dbapi_module
         except ImportError as e:
             raise e
-        return dbapi_module
+        return cast(DBAPIModule, dbapi_module)  # pyright: ignore[reportInvalidCast]
 
     # Keep legacy dbapi() for SA 1.x compat
     @classmethod
-    def dbapi(cls):
+    def dbapi(cls) -> DBAPIModule:  # type: ignore[override]
         return cls.import_dbapi()
 
-    def create_connect_args(self, url):
+    def create_connect_args(self, url: URL) -> ConnectArgsType:
         """Build DB-API connection arguments for pycubrid.
 
         pycubrid accepts keyword arguments directly::
@@ -91,14 +96,14 @@ class PyCubridDialect(CubridDialect):
             "password": opts.get("password", ""),
         }
 
-    def on_connect(self):
+    def on_connect(self) -> Callable[[Any], None] | None:
         """Return a callable to set up a new pycubrid connection.
 
         Disables autocommit so that SQLAlchemy manages transactions.
         """
         isolation_level = self.isolation_level
 
-        def connect(conn):
+        def connect(conn: Any) -> None:
             # pycubrid uses a property setter for autocommit
             conn.autocommit = False
             if isolation_level is not None:
@@ -106,7 +111,7 @@ class PyCubridDialect(CubridDialect):
 
         return connect
 
-    def do_ping(self, dbapi_connection):
+    def do_ping(self, dbapi_connection: DBAPIConnection) -> bool:
         """Ping the server to check connection liveness.
 
         pycubrid does not expose a native ``ping()`` method, so we

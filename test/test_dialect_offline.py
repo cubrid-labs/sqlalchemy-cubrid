@@ -287,7 +287,7 @@ class TestReflectionMethods:
         ]
         connection.execute.side_effect = [rows, comment_rows]
 
-        with patch("sqlalchemy.sql.util.warn", create=True) as warn:
+        with patch("sqlalchemy.util.warn") as warn:
             columns = _invoke_reflection(dialect, "get_columns", connection, "sample_table")
 
         assert len(columns) == 7

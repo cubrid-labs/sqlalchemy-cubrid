@@ -23,21 +23,21 @@ Usage::
 
 from __future__ import annotations
 
-from typing import Any, List, Optional, Sequence, Tuple
+from typing import Any, Mapping, Sequence
 
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
-from sqlalchemy.sql.expression import ClauseElement
+from sqlalchemy.sql.expression import Executable
 
 __all__ = ("trace_query",)
 
 
 def trace_query(
     connection: Connection,
-    statement: ClauseElement,
+    statement: Executable,
     *,
-    parameters: Optional[Any] = None,
-) -> List[str]:
+    parameters: Mapping[str, Any] | Sequence[Mapping[str, Any]] | None = None,
+) -> list[str]:
     """Execute a statement with CUBRID's trace facility and return trace output.
 
     CUBRID uses ``SET TRACE ON`` / ``SHOW TRACE`` instead of ``EXPLAIN``.
@@ -80,9 +80,9 @@ def trace_query(
             connection.execute(statement)
 
         result = connection.execute(text("SHOW TRACE"))
-        rows: Sequence[Tuple[Any, ...]] = result.fetchall()
+        rows = result.fetchall()
 
-        trace_output: List[str] = []
+        trace_output: list[str] = []
         for row in rows:
             if row and row[0] is not None:
                 trace_output.append(str(row[0]))

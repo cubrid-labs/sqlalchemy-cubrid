@@ -9,6 +9,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from sqlalchemy.sql import compiler
 from sqlalchemy.sql import sqltypes
 
@@ -16,37 +18,43 @@ from sqlalchemy.sql import sqltypes
 class CubridCompiler(compiler.SQLCompiler):
     """SQLCompiler subclass for CUBRID."""
 
-    def visit_sysdate_func(self, fn, **kw):
+    def visit_sysdate_func(self, fn: Any, **kw: Any) -> str:
         return "SYSDATE"
 
-    def visit_utc_timestamp_func(self, fn, **kw):
+    def visit_utc_timestamp_func(self, fn: Any, **kw: Any) -> str:
         return "UTC_TIMESTAMP()"
 
-    def visit_group_concat_func(self, fn, **kw):
+    def visit_group_concat_func(self, fn: Any, **kw: Any) -> str:
         """Render GROUP_CONCAT aggregate function.
 
         CUBRID supports GROUP_CONCAT([DISTINCT] expr [ORDER BY ...] [SEPARATOR '...'])
         """
         return "GROUP_CONCAT(%s)" % self.function_argspec(fn, **kw)
 
-    def visit_cast(self, cast, **kw):
+    def visit_cast(self, cast: Any, **kw: Any) -> str:
         # https://www.cubrid.org/manual/en/11.0/sql/function/typecast_fn.html#cast
         type_ = self.process(cast.typeclause)
         if type_ is None:
             return self.process(cast.clause.self_group())
         return f"CAST({self.process(cast.clause)} AS {type_})"
 
-    def render_literal_value(self, value, type_):
-        value = super().render_literal_value(value, type_)
-        value = value.replace("\\", "\\\\")
-        return value
+    def render_literal_value(self, value: Any, type_: Any) -> str:
+        rendered = str(super().render_literal_value(value, type_))
+        rendered = rendered.replace("\\", "\\\\")
+        return rendered
 
-    def get_select_precolumns(self, select, **kw):
+    def get_select_precolumns(self, select: Any, **kw: Any) -> str:
         if bool(select._distinct):
             return "DISTINCT "
         return ""
 
-    def visit_join(self, join, asfrom=False, **kwargs):
+    def visit_join(
+        self,
+        join: Any,
+        asfrom: bool = False,
+        from_linter: Any = None,
+        **kwargs: Any,
+    ) -> str:
         # https://www.cubrid.org/manual/en/11.0/sql/query/select.html#join-query
         return "".join(
             (
@@ -58,7 +66,7 @@ class CubridCompiler(compiler.SQLCompiler):
             )
         )
 
-    def for_update_clause(self, select, **kw):
+    def for_update_clause(self, select: Any, **kw: Any) -> str:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Render FOR UPDATE clause.
 
         CUBRID supports::
@@ -75,7 +83,7 @@ class CubridCompiler(compiler.SQLCompiler):
             text += " OF " + ", ".join(self.process(col, **kw) for col in select._for_update_arg.of)
         return text
 
-    def limit_clause(self, select, **kw):
+    def limit_clause(self, select: Any, **kw: Any) -> str:
         # https://www.cubrid.org/manual/en/11.0/sql/query/select.html#limit-clause
         # SA 2.0: _limit_clause / _offset_clause are ClauseElements, not raw ints.
         limit_clause = select._limit_clause
@@ -92,22 +100,35 @@ class CubridCompiler(compiler.SQLCompiler):
         else:
             return " \n LIMIT %s" % (self.process(limit_clause, **kw),)
 
-    def update_limit_clause(self, update_stmt):
+    def update_limit_clause(self, update_stmt: Any) -> str | None:  # pyright: ignore[reportIncompatibleMethodOverride]
         # https://www.cubrid.org/manual/en/11.0/sql/query/update.html
         limit = update_stmt.kwargs.get(f"{self.dialect.name}_limit", None)
         if limit:
             return f"LIMIT {limit}"
         return None
 
-    def update_tables_clause(self, update_stmt, from_table, extra_froms, **kw):
+    def update_tables_clause(
+        self,
+        update_stmt: Any,
+        from_table: Any,
+        extra_froms: Any,
+        **kw: Any,
+    ) -> str:
         return ", ".join(
             t._compiler_dispatch(self, asfrom=True, **kw) for t in [from_table] + list(extra_froms)
         )
 
-    def update_from_clause(self, update_stmt, from_table, extra_froms, from_hints, **kw):
+    def update_from_clause(
+        self,
+        update_stmt: Any,
+        from_table: Any,
+        extra_froms: Any,
+        from_hints: Any,
+        **kw: Any,
+    ) -> None:
         return None
 
-    def visit_on_duplicate_key_update(self, on_duplicate, **kw):
+    def visit_on_duplicate_key_update(self, on_duplicate: Any, **kw: Any) -> str:
         """Render ON DUPLICATE KEY UPDATE clause.
 
         CUBRID uses VALUES() function to reference inserted values,
@@ -146,7 +167,7 @@ class CubridCompiler(compiler.SQLCompiler):
                 value_text = self.process(val.self_group(), use_schema=False)
             else:
 
-                def replace(element, captured_column=column, **kw):
+                def replace(element: Any, captured_column: Any = column, **kw: Any) -> Any | None:
                     if isinstance(element, elements.BindParameter) and element.type._isnull:
                         return element._with_binary_element_type(captured_column.type)
                     elif (
@@ -179,7 +200,7 @@ class CubridCompiler(compiler.SQLCompiler):
 
         return f"ON DUPLICATE KEY UPDATE {', '.join(clauses)}"
 
-    def visit_merge(self, merge_stmt, **kw):
+    def visit_merge(self, merge_stmt: Any, **kw: Any) -> str:
         from sqlalchemy import exc
         from sqlalchemy.sql import coercions, elements
 
@@ -202,7 +223,7 @@ class CubridCompiler(compiler.SQLCompiler):
 
         target_columns = getattr(target, "c", None)
 
-        def _resolve_target_column(column_key):
+        def _resolve_target_column(column_key: Any) -> Any | None:
             if isinstance(column_key, str):
                 if target_columns is not None and column_key in target_columns:
                     return target_columns[column_key]
@@ -211,14 +232,14 @@ class CubridCompiler(compiler.SQLCompiler):
                 return column_key
             return None
 
-        def _render_column_name(column_key):
+        def _render_column_name(column_key: Any) -> str:
             if isinstance(column_key, str):
                 return self.preparer.quote(column_key)
             if hasattr(column_key, "name"):
                 return self.preparer.quote(column_key.name)
             return self.process(column_key, **kw)
 
-        def _render_value(value, target_column):
+        def _render_value(value: Any, target_column: Any | None) -> str:
             if coercions._is_literal(value):
                 value = elements.BindParameter(
                     None,
@@ -291,8 +312,8 @@ class CubridCompiler(compiler.SQLCompiler):
 
         return "\n".join(lines)
 
-    def visit_replace(self, replace_stmt, **kw):
-        text = super().visit_insert(replace_stmt, **kw)
+    def visit_replace(self, replace_stmt: Any, **kw: Any) -> str:
+        text = str(super().visit_insert(replace_stmt, **kw))  # type: ignore[no-untyped-call]
         if "INSERT INTO" in text:
             return text.replace("INSERT INTO", "REPLACE INTO", 1)
         if text.startswith("INSERT"):
@@ -306,7 +327,7 @@ class CubridDDLCompiler(compiler.DDLCompiler):
     Handles AUTO_INCREMENT for autoincrement columns and column defaults.
     """
 
-    def get_column_specification(self, column, **kw):
+    def get_column_specification(self, column: Any, **kw: Any) -> str:
         """Build column DDL specification.
 
         CUBRID syntax::
@@ -341,7 +362,7 @@ class CubridDDLCompiler(compiler.DDLCompiler):
 
         return " ".join(colspec)
 
-    def post_create_table(self, table):
+    def post_create_table(self, table: Any) -> str:  # pyright: ignore[reportIncompatibleMethodOverride]
         table_opts = []
         if table.comment is not None:
             literal = self.sql_compiler.render_literal_value(
@@ -351,7 +372,7 @@ class CubridDDLCompiler(compiler.DDLCompiler):
             table_opts.append(f"\n COMMENT = {literal}")
         return "".join(table_opts)
 
-    def visit_set_table_comment(self, create, **kw):
+    def visit_set_table_comment(self, create: Any, **kw: Any) -> str:
         return "ALTER TABLE %s COMMENT = %s" % (
             self.preparer.format_table(create.element),
             self.sql_compiler.render_literal_value(
@@ -360,10 +381,10 @@ class CubridDDLCompiler(compiler.DDLCompiler):
             ),
         )
 
-    def visit_drop_table_comment(self, drop, **kw):
+    def visit_drop_table_comment(self, drop: Any, **kw: Any) -> str:
         return "ALTER TABLE %s COMMENT = ''" % (self.preparer.format_table(drop.element),)
 
-    def visit_set_column_comment(self, create, **kw):
+    def visit_set_column_comment(self, create: Any, **kw: Any) -> str:
         return "ALTER TABLE %s MODIFY %s %s COMMENT %s" % (
             self.preparer.format_table(create.element.table),
             self.preparer.format_column(create.element),
@@ -381,14 +402,14 @@ class CubridDDLCompiler(compiler.DDLCompiler):
 class CubridTypeCompiler(compiler.GenericTypeCompiler):
     """TypeCompiler for CUBRID data types."""
 
-    def _get(self, key, type_, kw):
+    def _get(self, key: str, type_: Any, kw: dict[str, Any]) -> Any:
         return kw.get(key, getattr(type_, key, None))
 
-    def visit_BOOLEAN(self, type_, **kw):
+    def visit_BOOLEAN(self, type_: Any, **kw: Any) -> str:
         # CUBRID has no native BOOLEAN; map to SMALLINT.
         return self.visit_SMALLINT(type_)
 
-    def visit_NUMERIC(self, type_, **kw):
+    def visit_NUMERIC(self, type_: Any, **kw: Any) -> str:
         if type_.precision is None:
             return "NUMERIC"
         elif type_.scale is None:
@@ -396,7 +417,7 @@ class CubridTypeCompiler(compiler.GenericTypeCompiler):
         else:
             return f"NUMERIC({type_.precision}, {type_.scale})"
 
-    def visit_DECIMAL(self, type_, **kw):
+    def visit_DECIMAL(self, type_: Any, **kw: Any) -> str:
         if type_.precision is None:
             return "DECIMAL"
         elif type_.scale is None:
@@ -404,25 +425,25 @@ class CubridTypeCompiler(compiler.GenericTypeCompiler):
         else:
             return f"DECIMAL({type_.precision}, {type_.scale})"
 
-    def visit_FLOAT(self, type_, **kw):
+    def visit_FLOAT(self, type_: Any, **kw: Any) -> str:
         if type_.precision is None:
             return "FLOAT"
         else:
             return f"FLOAT({type_.precision})"
 
-    def visit_DOUBLE(self, type_, **kw):
+    def visit_DOUBLE(self, type_: Any, **kw: Any) -> str:
         return "DOUBLE"
 
-    def visit_MONETARY(self, type_, **kw):
+    def visit_MONETARY(self, type_: Any, **kw: Any) -> str:
         return "MONETARY"
 
-    def visit_SMALLINT(self, type_, **kw):
+    def visit_SMALLINT(self, type_: Any, **kw: Any) -> str:
         return "SMALLINT"
 
-    def visit_BIGINT(self, type_, **kw):
+    def visit_BIGINT(self, type_: Any, **kw: Any) -> str:
         return "BIGINT"
 
-    def visit_BIT(self, type_, **kw):
+    def visit_BIT(self, type_: Any, **kw: Any) -> str:
         if type_.varying:
             compiled = "BIT VARYING"
             if type_.length is not None:
@@ -431,22 +452,22 @@ class CubridTypeCompiler(compiler.GenericTypeCompiler):
             compiled = f"BIT({type_.length})"
         return compiled
 
-    def visit_datetime(self, type_, **kw):
+    def visit_datetime(self, type_: Any, **kw: Any) -> str:
         return "DATETIME"
 
-    def visit_DATETIME(self, type_, **kw):
+    def visit_DATETIME(self, type_: Any, **kw: Any) -> str:
         return "DATETIME"
 
-    def visit_DATE(self, type_, **kw):
+    def visit_DATE(self, type_: Any, **kw: Any) -> str:
         return "DATE"
 
-    def visit_TIME(self, type_, **kw):
+    def visit_TIME(self, type_: Any, **kw: Any) -> str:
         return "TIME"
 
-    def visit_TIMESTAMP(self, type_, **kw):
+    def visit_TIMESTAMP(self, type_: Any, **kw: Any) -> str:
         return "TIMESTAMP"
 
-    def visit_VARCHAR(self, type_, **kw):
+    def visit_VARCHAR(self, type_: Any, **kw: Any) -> str:
         if hasattr(type_, "national") and type_.national:
             return self.visit_NVARCHAR(type_)
         elif type_.length:
@@ -454,7 +475,7 @@ class CubridTypeCompiler(compiler.GenericTypeCompiler):
         else:
             return "VARCHAR(4096)"
 
-    def visit_CHAR(self, type_, **kw):
+    def visit_CHAR(self, type_: Any, **kw: Any) -> str:
         if hasattr(type_, "national") and type_.national:
             return self.visit_NCHAR(type_)
         elif type_.length:
@@ -462,46 +483,46 @@ class CubridTypeCompiler(compiler.GenericTypeCompiler):
         else:
             return "CHAR"
 
-    def visit_NVARCHAR(self, type_, **kw):
+    def visit_NVARCHAR(self, type_: Any, **kw: Any) -> str:
         if type_.length:
             return f"NCHAR VARYING({type_.length})"
         else:
             return "NCHAR VARYING(4096)"
 
-    def visit_NCHAR(self, type_, **kw):
+    def visit_NCHAR(self, type_: Any, **kw: Any) -> str:
         if type_.length:
             return f"NCHAR({type_.length})"
         else:
             return "NCHAR"
 
-    def visit_OBJECT(self, type_, **kw):
+    def visit_OBJECT(self, type_: Any, **kw: Any) -> str:
         return "OBJECT"
 
-    def visit_large_binary(self, type_, **kw):
+    def visit_large_binary(self, type_: Any, **kw: Any) -> str:
         return self.visit_BLOB(type_)
 
-    def visit_text(self, type_, **kw):
+    def visit_text(self, type_: Any, **kw: Any) -> str:
         return self.visit_STRING(type_)
 
-    def visit_BLOB(self, type_, **kw):
+    def visit_BLOB(self, type_: Any, **kw: Any) -> str:
         return "BLOB"
 
-    def visit_CLOB(self, type_, **kw):
+    def visit_CLOB(self, type_: Any, **kw: Any) -> str:
         return "CLOB"
 
-    def visit_STRING(self, type_, **kw):
+    def visit_STRING(self, type_: Any, **kw: Any) -> str:
         return "STRING"
 
-    def visit_SET(self, type_, **kw):
+    def visit_SET(self, type_: Any, **kw: Any) -> str:
         return self._visit_collection(type_, "SET")
 
-    def visit_MULTISET(self, type_, **kw):
+    def visit_MULTISET(self, type_: Any, **kw: Any) -> str:
         return self._visit_collection(type_, "MULTISET")
 
-    def visit_SEQUENCE(self, type_, **kw):
+    def visit_SEQUENCE(self, type_: Any, **kw: Any) -> str:
         return self._visit_collection(type_, "SEQUENCE")
 
-    def _visit_collection(self, type_, collection_type, **kw):
+    def _visit_collection(self, type_: Any, collection_type: str, **kw: Any) -> str:
         """Compile CUBRID collection types (SET, MULTISET, LIST/SEQUENCE).
 
         See: https://www.cubrid.org/manual/en/11.0/sql/datatype.html#collection-types

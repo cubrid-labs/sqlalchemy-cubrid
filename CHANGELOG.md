@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-04-11
+
+### Stability Guarantee
+
+This release marks the first stable version of sqlalchemy-cubrid. The public API is frozen:
+breaking changes will only occur in major version bumps (2.0+).
+
+### Supported Environments
+
+- **Python**: 3.10, 3.11, 3.12, 3.13, 3.14
+- **CUBRID**: 10.2, 11.0, 11.2, 11.4
+- **SQLAlchemy**: 2.0–2.1 (`>=2.0,<2.2`)
+- **Alembic**: >=1.7
+
+### Known Limitations
+
+- `RETURNING` clauses not supported (CUBRID limitation)
+- No `Sequence` support (CUBRID uses `AUTO_INCREMENT`)
+- Native `BOOLEAN` not available (mapped to `SMALLINT`)
+- Lateral joins, JSON type, and writable CTEs not supported
+- `RELEASE SAVEPOINT` is a no-op
+
+### Fixed
+- `visit_join` signature: added missing `from_linter` parameter to match SQLAlchemy base class
+- `sqlalchemy.sql.util.warn`: replaced with correct `sqlalchemy.util.warn` API
+
+### Added
+- Full type annotations across all 8 source modules (mypy errors: 280 → 0)
+- Compatibility Matrix in README (Python, CUBRID, SQLAlchemy, Alembic versions)
+
+### Changed
+- Development Status classifier updated from "Beta" to "Production/Stable"
+- pycubrid optional dependency updated from `>=0.6.0` to `>=1.0,<2.0`
+- All documentation updated to explicitly state "SQLAlchemy 2.0–2.1" support
+- Version bumped to 1.0.0
+
 ## [0.8.0] - 2026-04-04
 
 ### Added
@@ -12,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Python versions, CUBRID versions, driver compatibility, feature support, type mappings,
   and known limitations — defines the 1.0 support boundary
 - Documents private SQLAlchemy API usages that require the `<2.2` version pin
+- Clarified public documentation to state SQLAlchemy 2.0–2.1 support explicitly
 
 ### Changed
 - **pycubrid dependency**: Pin optional `pycubrid` dependency to `>=0.6.0` — required for
