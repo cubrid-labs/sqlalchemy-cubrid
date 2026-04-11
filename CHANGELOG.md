@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Python versions, CUBRID versions, driver compatibility, feature support, type mappings,
   and known limitations — defines the 1.0 support boundary
 - Documents private SQLAlchemy API usages that require the `<2.2` version pin
+- Clarified public documentation to state SQLAlchemy 2.0–2.1 support explicitly
 
 ### Changed
 - **pycubrid dependency**: Pin optional `pycubrid` dependency to `>=0.6.0` — required for

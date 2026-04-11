@@ -1,4 +1,4 @@
-# PRD: sqlalchemy-cubrid — CUBRID Dialect for SQLAlchemy 2.0
+# PRD: sqlalchemy-cubrid — CUBRID Dialect for SQLAlchemy 2.0–2.1
 
 ## 1. Overview
 
@@ -20,7 +20,7 @@ The original `sqlalchemy-cubrid` project was abandoned and broken:
 
 A complete ground-up rewrite delivering a production-ready CUBRID dialect:
 
-- **Full SQLAlchemy 2.0 dialect** with statement caching
+- **Full SQLAlchemy 2.0–2.1 dialect** with statement caching
 - **Complete SQL feature coverage** — everything CUBRID supports is enabled
 - **Comprehensive type system** — 20+ types including CUBRID-specific collections
 - **Schema reflection** — tables, views, columns, PKs, FKs, indexes, unique constraints, comments
@@ -28,7 +28,7 @@ A complete ground-up rewrite delivering a production-ready CUBRID dialect:
 - **DDL support** — COMMENT, IF NOT EXISTS / IF EXISTS, AUTO_INCREMENT
 - **Alembic migration support** via auto-discovered entry point
 - **99.45% test coverage** (396 tests, 1082 statements, 6 unreachable)
-- **CI/CD** — Python 3.10–3.13 × CUBRID 10.2–11.4 matrix
+- **CI/CD** — Python 3.10–3.14 × CUBRID 10.2–11.4 matrix
 - **7 documentation guides** covering every aspect of the dialect
 
 ### 1.3 Success Criteria — Status

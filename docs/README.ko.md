@@ -1,6 +1,6 @@
 # sqlalchemy-cubrid
 
-**SQLAlchemy 2.0+를 위한 CUBRID 방언(Dialect)**
+**SQLAlchemy 2.0–2.1을 위한 CUBRID 방언(Dialect)**
 
 [🇰🇷 한국어](README.ko.md) · [🇺🇸 English](../README.md) · [🇨🇳 中文](README.zh.md) · [🇮🇳 हिन्दी](README.hi.md) · [🇩🇪 Deutsch](README.de.md) · [🇷🇺 Русский](README.ru.md)
 
@@ -16,14 +16,14 @@
 ## 왜 sqlalchemy-cubrid인가?
 
 CUBRID는 고성능 오픈소스 관계형 데이터베이스로, 한국 공공기관 및 기업 환경에서
-널리 사용되고 있습니다. 그러나 지금까지 최신 SQLAlchemy 2.0 API를 지원하는
+널리 사용되고 있습니다. 그러나 지금까지 최신 SQLAlchemy 2.0–2.1 API를 지원하는
 프로덕션 수준의 방언은 존재하지 않았습니다.
 
 **sqlalchemy-cubrid**는 이 공백을 채웁니다:
 
-- **쿼리 캐싱**과 **PEP 561 타입 지원**을 갖춘 완전한 SQLAlchemy 2.0 방언
+- **쿼리 캐싱**과 **PEP 561 타입 지원**을 갖춘 완전한 SQLAlchemy 2.0–2.1 방언
 - **427개 오프라인 테스트**, **99% 이상 코드 커버리지** — 데이터베이스 없이도 실행 가능
-- **Python 3.10 -- 3.13**에서 **4개 CUBRID 버전**(10.2, 11.0, 11.2, 11.4) 통합 테스트 완료
+- **Python 3.10 -- 3.14**에서 **4개 CUBRID 버전**(10.2, 11.0, 11.2, 11.4) 통합 테스트 완료
 - CUBRID 전용 DML 구문: `ON DUPLICATE KEY UPDATE`, `MERGE`, `REPLACE INTO`
 - Alembic 마이그레이션 기본 지원
 - **두 가지 드라이버 옵션** — C 확장(`cubrid://`) 또는 순수 Python(`cubrid+pycubrid://`)

@@ -170,7 +170,7 @@ engine = create_engine(
     # Set default isolation level for all connections
     isolation_level="REPEATABLE READ",
 
-    # SQLAlchemy 2.0 connection pool settings
+     # SQLAlchemy 2.0–2.1 connection pool settings
     pool_size=5,
     max_overflow=10,
     pool_timeout=30,
