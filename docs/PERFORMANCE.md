@@ -56,6 +56,43 @@ Baseline driver workload: Python `pycubrid` vs `PyMySQL`, 10000 rows x 5 rounds.
 
 Note: SQLAlchemy adds extra overhead for SQL compilation, ORM identity mapping, and object creation.
 
+### Issue #104 — ORM dialect profile and optimization
+
+Measured on the local benchmark environment used for Issue #104:
+
+| Scenario | Before | After | Delta |
+|---|---:|---:|---:|
+| Tier 2 single-row CRUD (mean) | 155.99 ms | 268.41 ms | 72.1% slower* |
+| Tier 2 bulk insert (100 rows, mean) | 370.33 ms | 356.09 ms | **3.9% faster** |
+| Tier 2 bulk insert (1000 rows, mean) | 2864.56 ms | 2511.52 ms | **12.3% faster** |
+| Tier 2 query builder select-all (mean) | 39.76 ms | 31.83 ms | **19.9% faster** |
+
+Profiling with `scripts/profile_orm.py` showed that dialect-layer self time is a very small fraction of total
+request time on CRUD-heavy ORM paths, with most elapsed time still spent in SQLAlchemy ORM/Core coordination
+and the `pycubrid` driver. In the profiled workload captured for Issue #104:
+
+- dialect-layer self time was **0.0009% of total request time**
+- SQLAlchemy Core self time was **6.55% of total request time**
+- `pycubrid` self time was **7.01% of total request time**
+- ORM select overhead vs raw SQL select was **18.08% of ORM select time**
+
+Top dialect-layer hotspots from the compilation-focused profiler pass were:
+
+1. `compiler.py:visit_on_duplicate_key_update`
+2. `compiler.py:limit_clause`
+3. `compiler.py:update_limit_clause`
+4. `compiler.py:<dictcomp>` inside `visit_on_duplicate_key_update`
+5. `compiler.py:replace` inside `visit_on_duplicate_key_update`
+
+Shipped optimization:
+
+- Enabled SQLAlchemy 2.x `insertmanyvalues` for the CUBRID dialect (`use_insertmanyvalues=True` and
+  `use_insertmanyvalues_wo_returning=True`) so ORM bulk inserts can batch into multi-values INSERT forms
+  without changing the public API.
+
+\* The single-row CRUD benchmark showed high variance in this local run, so the clear repeatable improvement from
+this change set is the bulk insert path rather than singleton unit-of-work latency.
+
 ---
 
 ## Performance Characteristics

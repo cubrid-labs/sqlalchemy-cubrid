@@ -21,6 +21,11 @@ class TestPyCubridDialectBasics:
         dialect = PyCubridDialect()
         assert dialect.supports_statement_cache is True
 
+    def test_insertmanyvalues_flags(self):
+        dialect = PyCubridDialect()
+        assert dialect.use_insertmanyvalues is True
+        assert dialect.use_insertmanyvalues_wo_returning is True
+
     def test_default_paramstyle(self):
         dialect = PyCubridDialect()
         assert dialect.default_paramstyle == "qmark"
@@ -128,6 +133,7 @@ class TestPyCubridOnConnect:
 
         dbapi_conn = MagicMock()
         hook = dialect.on_connect()
+        assert hook is not None
         hook(dbapi_conn)
 
         # pycubrid uses property setter, not set_autocommit()
@@ -140,6 +146,7 @@ class TestPyCubridOnConnect:
 
         dbapi_conn = MagicMock()
         hook = dialect.on_connect()
+        assert hook is not None
         hook(dbapi_conn)
 
         assert dbapi_conn.autocommit is False
@@ -194,7 +201,7 @@ class TestPyCubridExecutionContext:
     def test_get_lastrowid_fallback_on_attribute_error(self):
         ctx = PyCubridExecutionContext.__new__(PyCubridExecutionContext)
         # Cursor without lastrowid attribute
-        ctx.cursor = object()
+        ctx.cursor = cast(Any, object())
 
         mock_server_cursor = MagicMock()
         mock_server_cursor.fetchone.return_value = (99,)
@@ -208,7 +215,7 @@ class TestPyCubridExecutionContext:
 
     def test_get_lastrowid_fallback_returns_none_when_no_rows(self):
         ctx = PyCubridExecutionContext.__new__(PyCubridExecutionContext)
-        ctx.cursor = object()
+        ctx.cursor = cast(Any, object())
 
         mock_server_cursor = MagicMock()
         mock_server_cursor.fetchone.return_value = None

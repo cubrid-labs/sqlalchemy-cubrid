@@ -30,6 +30,7 @@ from sqlalchemy.engine.interfaces import (
 from sqlalchemy.engine.url import URL
 from sqlalchemy.sql import text
 from sqlalchemy.sql.compiler import IdentifierPreparer
+from sqlalchemy.sql.compiler import InsertmanyvaluesSentinelOpts
 
 from sqlalchemy_cubrid.base import CubridExecutionContext, CubridIdentifierPreparer
 from sqlalchemy_cubrid.compiler import (
@@ -177,6 +178,9 @@ class CubridDialect(default.DefaultDialect):
     supports_default_metavalue = True
     supports_empty_insert = True
     supports_multivalues_insert = True
+    use_insertmanyvalues = True
+    use_insertmanyvalues_wo_returning = True
+    insertmanyvalues_implicit_sentinel = InsertmanyvaluesSentinelOpts.ANY_AUTOINCREMENT
     supports_is_distinct_from = False
 
     # RETURNING
@@ -429,12 +433,12 @@ class CubridDialect(default.DefaultDialect):
     @reflection.cache
     def get_view_definition(  # type: ignore[override]
         self, connection: Any, view_name: str, schema: str | None = None, **kw: Any
-    ) -> str | None:  # pyright: ignore[reportIncompatibleMethodOverride]
+    ) -> str:
         """Return the CREATE VIEW definition."""
         quoted = self.identifier_preparer.quote_identifier(view_name)
         result = connection.execute(text(f"SHOW CREATE VIEW {quoted}"))
         row = result.fetchone()
-        return row[1] if row else None
+        return cast(str, row[1] if row else None)
 
     @reflection.cache
     def get_indexes(
@@ -666,9 +670,9 @@ class CubridDialect(default.DefaultDialect):
             return self._ISOLATION_LEVEL_REVERSE.get(val, str(val))
         return str(val)
 
-    def get_isolation_level_values(  # type: ignore[override]
+    def get_isolation_level_values(  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
         self, dbapi_conn: DBAPIConnection | None = None
-    ) -> Sequence[str]:  # pyright: ignore[reportIncompatibleMethodOverride]
+    ) -> Sequence[str]:
         """Return the list of valid isolation level values."""
         del dbapi_conn
         return [
@@ -683,7 +687,11 @@ class CubridDialect(default.DefaultDialect):
             "READ COMMITTED SCHEMA, READ UNCOMMITTED INSTANCES",
         ]
 
-    def set_isolation_level(self, dbapi_connection: DBAPIConnection, level: str) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
+    def set_isolation_level(
+        self,
+        dbapi_connection: DBAPIConnection,
+        level: str,
+    ) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Set the isolation level for *dbapi_conn*."""
         # Note: do NOT unwrap dbapi_conn.connection — the inner C-level
         # _cubrid.connection cursor cannot handle SET TRANSACTION SQL.

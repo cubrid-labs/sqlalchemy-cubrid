@@ -72,6 +72,10 @@ class TestDialectProperties:
     def test_multivalues_insert(self):
         assert CubridDialect.supports_multivalues_insert is True
 
+    def test_insertmanyvalues_enabled(self):
+        assert CubridDialect.use_insertmanyvalues is True
+        assert CubridDialect.use_insertmanyvalues_wo_returning is True
+
     def test_isolation_level_values(self):
         dialect = CubridDialect()
         levels = dialect.get_isolation_level_values()
