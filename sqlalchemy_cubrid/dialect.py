@@ -438,7 +438,9 @@ class CubridDialect(default.DefaultDialect):
         quoted = self.identifier_preparer.quote_identifier(view_name)
         result = connection.execute(text(f"SHOW CREATE VIEW {quoted}"))
         row = result.fetchone()
-        return cast(str, row[1] if row else None)
+        if row is None:
+            return ""
+        return str(row[1])
 
     @reflection.cache
     def get_indexes(

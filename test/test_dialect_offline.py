@@ -412,7 +412,7 @@ class TestReflectionMethods:
         empty_result = MagicMock()
         empty_result.fetchone.return_value = None
         connection.execute.return_value = empty_result
-        assert _invoke_reflection(dialect, "get_view_definition", connection, "user_view") is None
+        assert _invoke_reflection(dialect, "get_view_definition", connection, "user_view") == ""
 
     def test_get_indexes_with_primary_key_and_exception_paths(self):
         dialect = CubridDialect()
