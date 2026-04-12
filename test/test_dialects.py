@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from sqlalchemy import Column, Integer, MetaData, String, Table, insert
 from sqlalchemy.engine import url
 
 from sqlalchemy_cubrid.dialect import CubridDialect
@@ -75,6 +76,31 @@ class TestDialectProperties:
     def test_insertmanyvalues_enabled(self):
         assert CubridDialect.use_insertmanyvalues is True
         assert CubridDialect.use_insertmanyvalues_wo_returning is True
+
+    def test_insertmanyvalues_generates_batched_insert(self):
+        table = Table(
+            "imv_test",
+            MetaData(),
+            Column("id", Integer, primary_key=True, autoincrement=True),
+            Column("name", String(50), nullable=False),
+        )
+
+        stmt = insert(table).values(
+            [
+                {"name": "alpha"},
+                {"name": "beta"},
+                {"name": "gamma"},
+                {"name": "delta"},
+                {"name": "epsilon"},
+            ]
+        )
+
+        compiled = stmt.compile(dialect=CubridDialect())
+        sql_text = str(compiled)
+
+        assert sql_text.startswith("INSERT INTO imv_test")
+        assert sql_text.count("(?)") == 5
+        assert "), (" in sql_text
 
     def test_isolation_level_values(self):
         dialect = CubridDialect()

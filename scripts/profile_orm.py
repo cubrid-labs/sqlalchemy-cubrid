@@ -389,6 +389,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     engine = create_engine(args.dsn)
+    Base.metadata.create_all(engine)
     session_factory = sessionmaker(bind=engine, expire_on_commit=False)
 
     try:
@@ -435,6 +436,7 @@ def main() -> None:
         print(f"\nWrote JSON report to {args.output}")
     finally:
         _clear_users(engine)
+        Base.metadata.drop_all(engine)
         engine.dispose()
 
 
