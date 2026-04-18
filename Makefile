@@ -1,4 +1,4 @@
-.PHONY: help install lint format typecheck security check check-all test test-all integration docker-up docker-down changelog clean clean-all doctor
+.PHONY: help install lint format typecheck security check check-all test test-all integration docker-up docker-down changelog clean clean-all doctor release
 
 PYTEST = python3 -m pytest
 RUFF = ruff
@@ -77,3 +77,16 @@ doctor: ## Check development environment
 	@$(BANDIT) --version || echo "ERROR: bandit not found"
 	@pre-commit --version || echo "ERROR: pre-commit not found"
 	@echo "All checks passed!"
+
+release: ## Bump version in pyproject.toml and __init__.py
+	@if [ -z "$(VERSION)" ]; then echo "Usage: make release VERSION=x.y.z"; exit 1; fi
+	@echo "Bumping version to $(VERSION)..."
+	@sed -i 's/^version = ".*"/version = "$(VERSION)"/' pyproject.toml
+	@sed -i 's/^__version__ = ".*"/__version__ = "$(VERSION)"/' sqlalchemy_cubrid/__init__.py
+	@echo "Verifying consistency..."
+	@PYPROJECT_VER=$$(grep -oP '^version = "\K[^"]+' pyproject.toml); \
+	 INIT_VER=$$(python3 -c "import ast; print(next(node.value.value for node in ast.walk(ast.parse(open('sqlalchemy_cubrid/__init__.py').read())) if isinstance(node, ast.Assign) and any(t.id == '__version__' for t in node.targets if isinstance(t, ast.Name))))"); \
+	 if [ "$$PYPROJECT_VER" != "$$INIT_VER" ]; then \
+	   echo "ERROR: Version mismatch — pyproject.toml=$$PYPROJECT_VER, __init__.py=$$INIT_VER"; exit 1; \
+	 fi
+	@echo "Version $(VERSION) set in pyproject.toml and sqlalchemy_cubrid/__init__.py"
