@@ -34,3 +34,8 @@ Python 3.10+, SQLAlchemy 2.0–2.1, CUBRID 10.2–11.4
 - `cubrid+aiopycubrid://` URL scheme via `PyCubridAsyncDialect`
 - Full `create_async_engine` / `AsyncSession` support
 - Requires pycubrid >= 1.1.0 with async module
+
+### JSON Type Support
+- Native JSON type with `JSON_EXTRACT`-based path expressions
+- `col["key"]` and `col[("a", "b")]` indexing compiled to CUBRID SQL
+- Full colspecs/ischema_names integration for reflection

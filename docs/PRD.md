@@ -22,7 +22,7 @@ A complete ground-up rewrite delivering a production-ready CUBRID dialect:
 
 - **Full SQLAlchemy 2.0–2.1 dialect** with statement caching
 - **Complete SQL feature coverage** — everything CUBRID supports is enabled
-- **Comprehensive type system** — 20+ types including CUBRID-specific collections
+- **Comprehensive type system** — 20+ types including CUBRID-specific collections and JSON
 - **Schema reflection** — tables, views, columns, PKs, FKs, indexes, unique constraints, comments
 - **DML extensions** — ON DUPLICATE KEY UPDATE, MERGE, GROUP_CONCAT, TRUNCATE
 - **DDL support** — COMMENT, IF NOT EXISTS / IF EXISTS, AUTO_INCREMENT

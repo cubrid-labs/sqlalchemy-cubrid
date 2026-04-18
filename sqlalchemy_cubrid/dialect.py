@@ -48,6 +48,9 @@ from sqlalchemy_cubrid.types import (
     DOUBLE,
     DOUBLE_PRECISION,
     FLOAT,
+    JSON,
+    JSONIndexType,
+    JSONPathType,
     MULTISET,
     NCHAR,
     NUMERIC,
@@ -84,6 +87,9 @@ colspecs = {
     sqltypes.Numeric: NUMERIC,
     sqltypes.Float: FLOAT,
     sqltypes.Time: TIME,
+    sqltypes.JSON: JSON,
+    sqltypes.JSON.JSONIndexType: JSONIndexType,
+    sqltypes.JSON.JSONPathType: JSONPathType,
 }
 
 # ischema_names maps CUBRID type names from SHOW COLUMNS to SA types.
@@ -120,6 +126,8 @@ ischema_names = {
     "SET": SET,
     "MULTISET": MULTISET,
     "SEQUENCE": SEQUENCE,
+    # JSON (CUBRID 10.2+)
+    "JSON": JSON,
 }
 
 

@@ -131,7 +131,7 @@ async with AsyncSession(engine) as session:
 
 ## Features
 
-- Complete type system -- numeric, string, date/time, bit, LOB, and collection types
+- Complete type system -- numeric, string, date/time, bit, LOB, collection, and JSON types
 - SQL compilation -- SELECT, JOIN, CAST, LIMIT/OFFSET, subqueries, CTEs, window functions
 - DML extensions -- `ON DUPLICATE KEY UPDATE`, `MERGE`, `REPLACE INTO`, `FOR UPDATE`, `TRUNCATE`
 - DDL support -- `COMMENT`, `IF NOT EXISTS` / `IF EXISTS`, `AUTO_INCREMENT`

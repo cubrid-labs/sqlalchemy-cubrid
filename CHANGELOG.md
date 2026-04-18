@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.0] - 2026-04-18
 
 ### Added
+
 - **Async dialect** via `cubrid+aiopycubrid://` URL scheme
   - `PyCubridAsyncDialect` (`is_async=True`) using SQLAlchemy's `AsyncAdapt_dbapi_*` base classes
   - `AsyncAdapt_pycubrid_dbapi` wraps `pycubrid.aio` module
@@ -15,6 +16,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `AsyncAdapt_pycubrid_cursor` with full async cursor adaptation
   - `cubrid.aiopycubrid` entry point auto-discovered by SQLAlchemy
 - 17 new async dialect offline tests (`test/test_aio_pycubrid_dialect.py`)
+
+- **JSON type support** (CUBRID 10.2+)
+  - `JSON` type class subclassing `sqltypes.JSON`
+  - `JSONIndexType` and `JSONPathType` for path expression formatting
+  - `visit_JSON` type compiler emitting `JSON` DDL
+  - JSON path expressions via `JSON_EXTRACT` (`col["key"]`, `col[("a", "b")]`)
+  - JSON null → SQL NULL handling with CASE expressions for typed access
+  - `colspecs` mapping: generic `sa.JSON` → dialect `JSON`
+  - `ischema_names` mapping: `"JSON"` → `JSON` for reflection
+  - 32 offline tests (`test/test_json.py`)
 
 ## [1.0.0] - 2026-04-11
 
@@ -35,7 +46,7 @@ breaking changes will only occur in major version bumps (2.0+).
 - `RETURNING` clauses not supported (CUBRID limitation)
 - No `Sequence` support (CUBRID uses `AUTO_INCREMENT`)
 - Native `BOOLEAN` not available (mapped to `SMALLINT`)
-- Lateral joins, JSON type, and writable CTEs not supported
+- Lateral joins and writable CTEs not supported
 - `RELEASE SAVEPOINT` is a no-op
 
 ### Fixed

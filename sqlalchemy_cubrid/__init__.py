@@ -25,6 +25,9 @@ from .types import (
     DOUBLE,
     DOUBLE_PRECISION,
     FLOAT,
+    JSON,
+    JSONIndexType,
+    JSONPathType,
     MONETARY,
     MULTISET,
     NCHAR,
@@ -82,4 +85,7 @@ __all__ = (
     "MULTISET",
     "SEQUENCE",
     "OBJECT",
+    "JSON",
+    "JSONIndexType",
+    "JSONPathType",
 )

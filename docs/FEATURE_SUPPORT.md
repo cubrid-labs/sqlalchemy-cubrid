@@ -166,7 +166,7 @@ High-level overview by feature category.
 | Type | CUBRID | MySQL | PostgreSQL | SQLite |
 |------|--------|-------|------------|--------|
 | ENUM | ❌ | ✅ | ✅ | ❌ |
-| JSON | ❌ | ✅ | ✅ | ⚠️ |
+| JSON | ✅ | ✅ | ✅ | ⚠️ |
 | ARRAY | ❌ | ❌ | ✅ | ❌ |
 | UUID | ❌ | ❌ | ✅ | ❌ |
 | INTERVAL | ❌ | ❌ | ✅ | ❌ |
@@ -176,7 +176,7 @@ High-level overview by feature category.
 
 - **BOOLEAN**: CUBRID maps `BOOLEAN` to `SMALLINT`. MySQL maps it to `TINYINT(1)`. SQLite stores booleans as integers. Only PostgreSQL has a native `BOOLEAN` type.
 - **NCHAR / NVARCHAR**: CUBRID has first-class national character types. MySQL handles national characters via column charset. PostgreSQL and SQLite have no separate national character types.
-- **JSON**: CUBRID does not have a JSON data type or JSON functions. MySQL (5.7+) and PostgreSQL have native JSON support. SQLite has JSON functions but no dedicated column type.
+- **JSON**: CUBRID 10.2+ has native JSON support (RFC 7159) with 25+ JSON functions. The dialect supports `JSON` type, `col["key"]` path expressions via `JSON_EXTRACT`, and typed access (`as_string()`, `as_integer()`, `as_float()`). MySQL (5.7+) and PostgreSQL also have native JSON support. SQLite has JSON functions but no dedicated column type.
 - **ARRAY**: CUBRID uses collection types (`SET`, `MULTISET`, `SEQUENCE`) which serve a similar purpose but are not SQL-standard arrays. PostgreSQL has native `ARRAY[]` support.
 - **CLOB**: CUBRID and MySQL have explicit `CLOB` types. PostgreSQL uses `TEXT` (unlimited length). SQLite stores all text as `TEXT`.
 
@@ -464,7 +464,7 @@ Features not currently supported that may be added in future releases, depending
 |---------|--------|--------|
 | RETURNING clause | ❌ | CUBRID does not support `INSERT/UPDATE/DELETE … RETURNING` |
 | Postfetch LASTROWID | ❌ | CUBRID Python driver limitation |
-| JSON type | ❌ | CUBRID does not have a JSON data type |
+| JSON type | ✅ | Native JSON support (CUBRID 10.2+) with path expressions via `JSON_EXTRACT` |
 | Temporary tables | ❌ | CUBRID does not support `CREATE TEMPORARY TABLE` |
 | Multiple schemas | ❌ | CUBRID operates in a single-schema model |
 | IS DISTINCT FROM | ❌ | Not a CUBRID SQL operator |
