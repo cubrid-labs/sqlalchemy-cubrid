@@ -54,6 +54,7 @@ These will be migrated to public APIs when SA 2.2 is released.
 |---|---|---|---|
 | CUBRID-Python (CCI) | `pip install "sqlalchemy-cubrid[cubrid]"` | `cubrid://` | ✅ Supported |
 | pycubrid (Pure Python) | `pip install "sqlalchemy-cubrid[pycubrid]"` | `cubrid+pycubrid://` | ✅ Supported |
+| pycubrid async | `pip install "sqlalchemy-cubrid[pycubrid]"` | `cubrid+aiopycubrid://` | ✅ Supported |
 
 ---
 
@@ -64,6 +65,7 @@ These will be migrated to public APIs when SA 2.2 is released.
 | Feature | Status | Notes |
 |---|---|---|
 | `create_engine()` | ✅ | Both `cubrid://` and `cubrid+pycubrid://` schemes |
+| Async engine | ✅ | `create_async_engine("cubrid+aiopycubrid://...")` |
 | SQL compilation | ✅ | SELECT, INSERT, UPDATE, DELETE, JOIN, subqueries |
 | DDL compilation | ✅ | CREATE TABLE, ALTER, DROP, AUTO_INCREMENT, COMMENT |
 | Type system | ✅ | All CUBRID types mapped (see below) |
@@ -120,7 +122,7 @@ These will be migrated to public APIs when SA 2.2 is released.
 | RELEASE SAVEPOINT | ❌ | No-op (CUBRID doesn't support it) |
 | Lateral joins | ❌ | CUBRID lacks LATERAL subquery support |
 | Full-text search | ❌ | No MATCH … AGAINST syntax |
-| Async DBAPI | ❌ | CUBRID drivers have no async support |
+| Async DBAPI | ✅ | Via pycubrid.aio async driver (`cubrid+aiopycubrid://`) |
 
 ---
 

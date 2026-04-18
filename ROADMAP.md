@@ -27,3 +27,10 @@
 ## Compatibility
 
 Python 3.10+, SQLAlchemy 2.0–2.1, CUBRID 10.2–11.4
+
+## Completed
+
+### Async Dialect Support
+- `cubrid+aiopycubrid://` URL scheme via `PyCubridAsyncDialect`
+- Full `create_async_engine` / `AsyncSession` support
+- Requires pycubrid >= 1.1.0 with async module

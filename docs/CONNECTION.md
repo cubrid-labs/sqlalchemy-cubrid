@@ -120,9 +120,25 @@ The dialect registers three SQLAlchemy entry points:
 | `cubrid://`          | CUBRIDdb    | Default C-extension driver           |
 | `cubrid+cubrid://`   | CUBRIDdb    | Explicit C-extension driver          |
 | `cubrid+pycubrid://` | pycubrid    | Pure Python driver (no C build)      |
+| `cubrid+aiopycubrid://` | pycubrid.aio | Async pure Python driver          |
 
 Use `cubrid://` for the C-extension driver (best performance), or `cubrid+pycubrid://` for the pure Python driver (easiest installation, no native build step).
 ---
+
+## Async Connection
+
+For async applications, use the `cubrid+aiopycubrid://` URL scheme with `create_async_engine`. Requires `pycubrid>=1.1.0`.
+
+```python
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy import text
+
+engine = create_async_engine("cubrid+aiopycubrid://dba@localhost:33000/testdb")
+
+async with engine.connect() as conn:
+    result = await conn.execute(text("SELECT 1"))
+    print(result.scalar())
+```
 
 ## How the Dialect Translates URLs
 
@@ -405,10 +421,13 @@ flowchart TD
     parse --> check{Driver name}
     check -->|cubrid or cubrid+cubrid| cext[Build CUBRID native DSN]
     check -->|cubrid+pycubrid| pykw[Build pycubrid kwargs]
+    check -->|cubrid+aiopycubrid| aio[Build pycubrid.aio kwargs]
     cext --> connect1[CUBRIDdb.connect(url, user, password)]
     pykw --> connect2[pycubrid.connect(host, port, database, user, password)]
+    aio --> connect3[pycubrid.aio.connect(...)]
     connect1 --> session[Dialect on_connect sets autocommit=False]
     connect2 --> session
+    connect3 --> session
 ```
 
 !!! warning "Use the correct dialect prefix"
