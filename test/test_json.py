@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 import sqlalchemy as sa
 from sqlalchemy import Column, Integer, MetaData, String, Table, func, select, text
 
@@ -253,3 +254,60 @@ class TestJSONExport:
         from sqlalchemy_cubrid import JSONPathType as ImportedJPT
 
         assert ImportedJPT is JSONPathType
+
+
+class TestFormatTypeMixinProcessors:
+    def _dialect(self):
+        from sqlalchemy_cubrid.dialect import CubridDialect
+
+        return CubridDialect()
+
+    def test_format_value_not_implemented(self):
+        from sqlalchemy_cubrid.types import _FormatTypeMixin
+
+        with pytest.raises(NotImplementedError):
+            _FormatTypeMixin()._format_value("anything")
+
+    def test_index_bind_processor_int(self):
+        proc = JSONIndexType().bind_processor(self._dialect())
+        assert proc is not None
+        assert proc(0) == "$[0]"
+
+    def test_index_bind_processor_string_escapes(self):
+        proc = JSONIndexType().bind_processor(self._dialect())
+        assert proc('a"b') == '$."a""b"'
+
+    def test_index_literal_processor_int(self):
+        proc = JSONIndexType().literal_processor(self._dialect())
+        assert proc is not None
+        result = proc(2)
+        assert "$[2]" in result
+
+    def test_index_literal_processor_string(self):
+        proc = JSONIndexType().literal_processor(self._dialect())
+        result = proc("name")
+        assert '$."name"' in result
+
+    def test_path_bind_processor(self):
+        proc = JSONPathType().bind_processor(self._dialect())
+        assert proc is not None
+        assert proc(("a", 1, "b")) == '$."a"[1]."b"'
+
+    def test_path_literal_processor(self):
+        proc = JSONPathType().literal_processor(self._dialect())
+        result = proc(("x", 0))
+        assert '$."x"[0]' in result
+
+    def test_index_bind_processor_no_super(self, monkeypatch):
+        """Cover the branch where string_bind_processor returns None."""
+        idx = JSONIndexType()
+        monkeypatch.setattr(idx, "string_bind_processor", lambda dialect: None)
+        proc = idx.bind_processor(self._dialect())
+        assert proc("k") == '$."k"'
+
+    def test_index_literal_processor_no_super(self, monkeypatch):
+        """Cover the branch where string_literal_processor returns None."""
+        idx = JSONIndexType()
+        monkeypatch.setattr(idx, "string_literal_processor", lambda dialect: None)
+        proc = idx.literal_processor(self._dialect())
+        assert proc("k") == '$."k"'
