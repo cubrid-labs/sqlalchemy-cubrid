@@ -354,3 +354,92 @@ class OBJECT(sqltypes.TypeEngine[Any]):
     """
 
     __visit_name__ = "OBJECT"
+
+
+# ---------------------------------------------------------------------------
+# JSON Type (CUBRID 10.2+)
+# ---------------------------------------------------------------------------
+
+
+class _FormatTypeMixin:
+    """Mixin for formatting JSON path index/path values for bind parameters."""
+
+    def _format_value(self, value: Any) -> str:
+        raise NotImplementedError()
+
+    def bind_processor(self, dialect: Any) -> Any:
+        super_proc = self.string_bind_processor(dialect)  # type: ignore[attr-defined]  # noqa: E501
+
+        def process(value: Any) -> Any:
+            value = self._format_value(value)
+            if super_proc:
+                value = super_proc(value)
+            return value
+
+        return process
+
+    def literal_processor(self, dialect: Any) -> Any:
+        super_proc = self.string_literal_processor(dialect)  # type: ignore[attr-defined]  # noqa: E501
+
+        def process(value: Any) -> str:
+            value = self._format_value(value)
+            if super_proc:
+                value = super_proc(value)
+            return value
+
+        return process
+
+
+class JSONIndexType(_FormatTypeMixin, sqltypes.JSON.JSONIndexType):
+    """CUBRID JSON index type for single-key access.
+
+    Converts Python index values to CUBRID JSON path syntax:
+    - Integer index: ``$[0]``
+    - String key: ``$."key"``
+    """
+
+    def _format_value(self, value: Any) -> str:
+        if isinstance(value, int):
+            return "$[%s]" % value
+        else:
+            return '$."%s"' % str(value).replace('"', '""')
+
+
+class JSONPathType(_FormatTypeMixin, sqltypes.JSON.JSONPathType):
+    """CUBRID JSON path type for multi-level access.
+
+    Converts Python tuple paths to CUBRID JSON path syntax:
+    - ``("a", 1, "b")`` → ``$."a"[1]."b"``
+    """
+
+    def _format_value(self, value: Any) -> str:
+        return "$%s" % (
+            "".join(
+                "[%s]" % elem if isinstance(elem, int) else '."%s"' % str(elem).replace('"', '""')
+                for elem in value
+            )
+        )
+
+
+class JSON(sqltypes.JSON):  # type: ignore[type-arg]
+    """CUBRID JSON type.
+
+    CUBRID supports JSON as of version 10.2 (RFC 7159 compliant).
+
+    :class:`_cubrid.JSON` is used automatically whenever the base
+    :class:`_types.JSON` datatype is used against a CUBRID backend.
+
+    The :class:`.cubrid.JSON` type supports persistence of JSON values
+    as well as the core index operations provided by :class:`_types.JSON`
+    datatype, by adapting the operations to render the ``JSON_EXTRACT``
+    function at the database level.
+
+    .. seealso::
+
+        :class:`_types.JSON` - main documentation for the generic
+        cross-platform JSON datatype.
+
+    .. versionadded:: 1.2.0
+    """
+
+    __visit_name__ = "JSON"

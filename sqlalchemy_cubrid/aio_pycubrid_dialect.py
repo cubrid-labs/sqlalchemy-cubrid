@@ -7,8 +7,7 @@
 
 from __future__ import annotations
 
-import collections
-from typing import Any, Callable, Optional, cast
+from typing import Any, Callable, cast
 
 from sqlalchemy.connectors.asyncio import (
     AsyncAdapt_dbapi_connection,

@@ -64,6 +64,8 @@ from sqlalchemy_cubrid import (
     BLOB, CLOB,
     # Collections
     SET, MULTISET, SEQUENCE,
+    # JSON
+    JSON,
 )
 ```
 
@@ -187,6 +189,48 @@ CREATE TABLE tagged_items (
 ```
 
 > **Note**: Collection types are CUBRID-specific. Standard SQL uses `ARRAY[]` (PostgreSQL) or has no collection support. If portability is a concern, use `SET`/`MULTISET`/`SEQUENCE` only when targeting CUBRID.
+
+### JSON Type
+
+CUBRID 10.2+ supports native JSON (RFC 7159). The dialect provides full JSON type support:
+
+| Type             | CUBRID SQL | Description                              |
+|------------------|------------|------------------------------------------|
+| `JSON`           | `JSON`     | Native JSON storage (RFC 7159 compliant) |
+| `JSONIndexType`  | —          | Single-key path formatting (`$."key"`)   |
+| `JSONPathType`   | —          | Multi-level path formatting              |
+
+```python
+from sqlalchemy_cubrid import JSON
+from sqlalchemy import Column, Integer, Table, MetaData, func, select
+
+metadata = MetaData()
+events = Table(
+    "events", metadata,
+    Column("id", Integer, primary_key=True),
+    Column("payload", JSON),
+)
+```
+
+**Path expressions** use `JSON_EXTRACT` under the hood:
+
+```python
+# Single key access: col["key"] → JSON_EXTRACT(col, '$."key"')
+stmt = select(events.c.payload["type"])
+
+# Nested path: col[("a", "b")] → JSON_EXTRACT(col, '$."a"."b"')
+stmt = select(events.c.payload[("data", "name")])
+
+# Typed access with null handling
+stmt = select(events).where(
+    events.c.payload["status"].as_string() == "active"
+)
+
+# Direct function usage
+stmt = select(func.JSON_EXTRACT(events.c.payload, "$.type"))
+```
+
+> **Note**: Generic `sa.JSON` is automatically adapted to CUBRID's `JSON` type via `colspecs`. JSON columns are reflected correctly from existing tables.
 
 ---
 

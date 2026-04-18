@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy.sql import compiler
+from sqlalchemy.sql import compiler, elements
 from sqlalchemy.sql import sqltypes
 
 
@@ -320,6 +320,56 @@ class CubridCompiler(compiler.SQLCompiler):
             return "REPLACE" + text[len("INSERT") :]
         return text
 
+    def _render_json_extract_from_binary(
+        self, binary: elements.BinaryExpression[Any], operator: Any, **kw: Any
+    ) -> str:
+        if binary.type._type_affinity is sqltypes.JSON:
+            return "JSON_EXTRACT(%s, %s)" % (
+                self.process(binary.left, **kw),
+                self.process(binary.right, **kw),
+            )
+
+        # When the target type is not JSON, convert JSON 'null' to SQL NULL
+        case_expression = "CASE JSON_EXTRACT(%s, %s) WHEN 'null' THEN NULL" % (
+            self.process(binary.left, **kw),
+            self.process(binary.right, **kw),
+        )
+
+        if binary.type._type_affinity is sqltypes.Boolean:
+            type_expression = (
+                "WHEN 'true' THEN 1 WHEN 'false' THEN 0 ELSE CAST(JSON_EXTRACT(%s, %s) AS INTEGER)"
+            ) % (
+                self.process(binary.left, **kw),
+                self.process(binary.right, **kw),
+            )
+        elif binary.type._type_affinity is sqltypes.Integer:
+            type_expression = "ELSE CAST(JSON_EXTRACT(%s, %s) AS INTEGER)" % (
+                self.process(binary.left, **kw),
+                self.process(binary.right, **kw),
+            )
+        elif binary.type._type_affinity is sqltypes.Numeric:
+            type_expression = "ELSE CAST(JSON_EXTRACT(%s, %s) AS DOUBLE)" % (
+                self.process(binary.left, **kw),
+                self.process(binary.right, **kw),
+            )
+        else:
+            type_expression = "ELSE JSON_UNQUOTE(JSON_EXTRACT(%s, %s))" % (
+                self.process(binary.left, **kw),
+                self.process(binary.right, **kw),
+            )
+
+        return case_expression + " " + type_expression + " END"
+
+    def visit_json_getitem_op_binary(
+        self, binary: elements.BinaryExpression[Any], operator: Any, **kw: Any
+    ) -> str:
+        return self._render_json_extract_from_binary(binary, operator, **kw)
+
+    def visit_json_path_getitem_op_binary(
+        self, binary: elements.BinaryExpression[Any], operator: Any, **kw: Any
+    ) -> str:
+        return self._render_json_extract_from_binary(binary, operator, **kw)
+
 
 class CubridDDLCompiler(compiler.DDLCompiler):
     """DDLCompiler subclass for CUBRID.
@@ -534,3 +584,6 @@ class CubridTypeCompiler(compiler.GenericTypeCompiler):
             else:
                 parts.append(value.__visit_name__)
         return f"{collection_type}({','.join(parts)})"
+
+    def visit_JSON(self, type_: Any, **kw: Any) -> str:
+        return "JSON"

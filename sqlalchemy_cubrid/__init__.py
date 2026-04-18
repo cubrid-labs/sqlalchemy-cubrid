@@ -25,6 +25,9 @@ from .types import (
     DOUBLE,
     DOUBLE_PRECISION,
     FLOAT,
+    JSON,
+    JSONIndexType,
+    JSONPathType,
     MONETARY,
     MULTISET,
     NCHAR,
@@ -49,7 +52,7 @@ from sqlalchemy.sql.sqltypes import (
     TIMESTAMP,
 )
 
-__version__ = "1.0.0"
+__version__ = "1.2.0"
 
 __all__ = (
     "insert",
@@ -82,4 +85,7 @@ __all__ = (
     "MULTISET",
     "SEQUENCE",
     "OBJECT",
+    "JSON",
+    "JSONIndexType",
+    "JSONPathType",
 )
