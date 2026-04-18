@@ -36,7 +36,7 @@ from sqlalchemy import (
     select,
     text,
 )
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -587,7 +587,6 @@ class TestFetchShapeCompatibility:
         execute successfully against a live CUBRID instance, confirming
         the dialect's use_insertmanyvalues=True is honored end-to-end.
         """
-        from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
         class _Base(DeclarativeBase):
             pass
