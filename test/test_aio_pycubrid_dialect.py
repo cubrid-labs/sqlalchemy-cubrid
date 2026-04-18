@@ -2,10 +2,8 @@ from __future__ import annotations
 
 import sys
 import types
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 from sqlalchemy.engine import url
 
 from sqlalchemy_cubrid.aio_pycubrid_dialect import (

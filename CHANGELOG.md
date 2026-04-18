@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-04-18
+
+### Added
+
+- **JSON type support** (CUBRID 10.2+)
+  - `JSON` type class subclassing `sqltypes.JSON`
+  - `JSONIndexType` and `JSONPathType` for path expression formatting
+    (with embedded-quote escaping per CUBRID JSON path grammar)
+  - `visit_JSON` type compiler emitting `JSON` DDL
+  - JSON path expressions via `JSON_EXTRACT` (`col["key"]`, `col[("a", "b")]`)
+  - Typed access via `as_boolean`, `as_integer`, `as_numeric`, `as_float`, `as_string`
+    using CASE / CAST / `JSON_UNQUOTE` as appropriate
+  - JSON null → SQL NULL handling with CASE expressions for typed access
+  - `colspecs` mapping: generic `sa.JSON` → dialect `JSON`
+  - `ischema_names` mapping: `"JSON"` → `JSON` for reflection
+  - 47 offline tests (`test/test_json.py`)
+
+### Fixed
+
+- Version consistency: synchronized `__version__` in `sqlalchemy_cubrid/__init__.py`
+  with `pyproject.toml` (was 1.0.0 vs 1.1.0)
+- Removed unused imports flagged by `ruff` in `aio_pycubrid_dialect.py` and
+  `test/test_aio_pycubrid_dialect.py`
+
 ## [1.1.0] - 2026-04-18
 
 ### Added
@@ -16,16 +40,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `AsyncAdapt_pycubrid_cursor` with full async cursor adaptation
   - `cubrid.aiopycubrid` entry point auto-discovered by SQLAlchemy
 - 17 new async dialect offline tests (`test/test_aio_pycubrid_dialect.py`)
-
-- **JSON type support** (CUBRID 10.2+)
-  - `JSON` type class subclassing `sqltypes.JSON`
-  - `JSONIndexType` and `JSONPathType` for path expression formatting
-  - `visit_JSON` type compiler emitting `JSON` DDL
-  - JSON path expressions via `JSON_EXTRACT` (`col["key"]`, `col[("a", "b")]`)
-  - JSON null → SQL NULL handling with CASE expressions for typed access
-  - `colspecs` mapping: generic `sa.JSON` → dialect `JSON`
-  - `ischema_names` mapping: `"JSON"` → `JSON` for reflection
-  - 32 offline tests (`test/test_json.py`)
 
 ## [1.0.0] - 2026-04-11
 

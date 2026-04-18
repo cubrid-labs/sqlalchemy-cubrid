@@ -1,11 +1,10 @@
 # test/test_json.py
 from __future__ import annotations
 
-import json
 
 import pytest
 import sqlalchemy as sa
-from sqlalchemy import Column, Integer, MetaData, String, Table, func, select, text
+from sqlalchemy import Column, Integer, MetaData, String, Table, func, select
 
 from sqlalchemy_cubrid.dialect import CubridDialect
 from sqlalchemy_cubrid.types import JSON, JSONIndexType, JSONPathType
