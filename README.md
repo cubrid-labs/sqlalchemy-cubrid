@@ -190,7 +190,7 @@ stmt = insert(users).values(name="Alice").on_duplicate_key_update(name="Alice Up
 ## Related Projects
 
 - [pycubrid](https://github.com/cubrid-labs/pycubrid) — Pure Python DB-API 2.0 driver for CUBRID
-- [cubrid-python-cookbook](https://github.com/cubrid-labs/cubrid-python-cookbook) — Production-ready Python examples for CUBRID
+- [cubrid-cookbook-python](https://github.com/cubrid-labs/cubrid-cookbook-python) — Production-ready Python examples for CUBRID
 
 ## Roadmap
 
