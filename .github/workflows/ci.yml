@@ -10,6 +10,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  version-check:
+    name: Version consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Check pyproject.toml matches __init__.py
+        run: |
+          PYPROJECT_VER=$(grep -oP '^version = "\K[^"]+' pyproject.toml)
+          INIT_VER=$(python3 -c "from sqlalchemy_cubrid import __version__; print(__version__)")
+          echo "pyproject.toml: $PYPROJECT_VER"
+          echo "__init__.py:    $INIT_VER"
+          if [ "$PYPROJECT_VER" != "$INIT_VER" ]; then
+            echo "::error::Version mismatch: pyproject.toml=$PYPROJECT_VER, __init__.py=$INIT_VER"
+            exit 1
+          fi
+          echo "Versions match: $PYPROJECT_VER"
+
   # ──────────────────────────────────────────
   # Job 1: Lint (fast, no DB needed)
   # ──────────────────────────────────────────
