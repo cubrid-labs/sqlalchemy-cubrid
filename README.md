@@ -29,7 +29,7 @@ production-ready SQLAlchemy dialect that supports the modern 2.0–2.1 API.
 - Tested against **4 CUBRID versions** (10.2, 11.0, 11.2, 11.4) across **Python 3.10 -- 3.14**
 - CUBRID-specific DML constructs: `ON DUPLICATE KEY UPDATE`, `MERGE`, `REPLACE INTO`
 - Alembic migration support out of the box
-- **Two driver options** — C-extension (`cubrid://`) or pure Python (`cubrid+pycubrid://`)
+- **Three driver options** — C-extension (`cubrid://`), pure Python (`cubrid+pycubrid://`), or async pure Python (`cubrid+aiopycubrid://`)
 
 ## Architecture
 
@@ -39,8 +39,10 @@ flowchart TD
     sa --> dialect["CubridDialect"]
     dialect --> pycubrid["pycubrid driver"]
     dialect --> cext["CUBRIDdb driver"]
+    dialect --> aio["pycubrid.aio async driver"]
     pycubrid --> server["CUBRID Server"]
     cext --> server
+    aio --> server
 ```
 
 ```mermaid
@@ -114,6 +116,19 @@ with Session(engine) as session:
     session.commit()
 ```
 
+### Async
+
+```python
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy import text
+
+engine = create_async_engine("cubrid+aiopycubrid://dba:password@localhost:33000/demodb")
+
+async with AsyncSession(engine) as session:
+    result = await session.execute(text("SELECT 1"))
+    print(result.scalar())
+```
+
 ## Features
 
 - Complete type system -- numeric, string, date/time, bit, LOB, and collection types
@@ -123,6 +138,7 @@ with Session(engine) as session:
 - Schema reflection -- tables, views, columns, PKs, FKs, indexes, unique constraints, comments
 - Alembic migrations via `CubridImpl` (auto-discovered entry point)
 - All 6 CUBRID isolation levels (dual-granularity: class-level + instance-level)
+- Async support — `create_async_engine("cubrid+aiopycubrid://...")` via pycubrid.aio
 
 ## Documentation
 
@@ -138,6 +154,7 @@ with Session(engine) as session:
 | [Development](docs/DEVELOPMENT.md) | Dev setup, testing, Docker, coverage, CI/CD |
 | [Driver Compatibility](docs/DRIVER_COMPAT.md) | CUBRID-Python driver versions and known issues |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | Common issues, error solutions, debugging techniques |
+| [Async Connection](docs/CONNECTION.md#async-connection) | Async engine setup with `cubrid+aiopycubrid://` |
 
 ## Compatibility Matrix
 
@@ -184,7 +201,11 @@ stmt = insert(users).values(name="Alice").on_duplicate_key_update(name="Alice Up
 
 ### What's the difference between `cubrid://` and `cubrid+pycubrid://`?
 
-`cubrid://` uses the C-extension driver (CUBRIDdb) which requires compilation. `cubrid+pycubrid://` uses the pure Python driver which installs with pip alone — no build tools needed.
+`cubrid://` uses the C-extension driver (CUBRIDdb) which requires compilation. `cubrid+pycubrid://` uses the pure Python driver which installs with pip alone — no build tools needed. `cubrid+aiopycubrid://` uses the async variant of the pure Python driver for use with `create_async_engine` and `AsyncSession`.
+
+### Does sqlalchemy-cubrid support async?
+
+Yes. Use `create_async_engine("cubrid+aiopycubrid://...")` with the pycubrid async driver. Requires `pycubrid>=1.1.0`. All Core and ORM features work with `AsyncSession`.
 
 
 ## Related Projects

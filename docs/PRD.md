@@ -92,6 +92,7 @@ graph TD
 [project.entry-points."sqlalchemy.dialects"]
 cubrid = "sqlalchemy_cubrid.dialect:CubridDialect"
 "cubrid.cubrid" = "sqlalchemy_cubrid.dialect:CubridDialect"
+"cubrid.aiopycubrid" = "sqlalchemy_cubrid.aio_pycubrid_dialect:PyCubridAsyncDialect"
 
 [project.entry-points."alembic.ddl"]
 cubrid = "sqlalchemy_cubrid.alembic_impl:CubridImpl"
@@ -192,6 +193,8 @@ class CubridDialect(default.DefaultDialect):
     max_identifier_length = 254
     default_paramstyle = "qmark"
 ```
+
+> **Async dialect**: `PyCubridAsyncDialect` subclasses the pycubrid dialect with `is_async = True` and wraps `pycubrid.aio` via `AsyncAdapt_pycubrid_dbapi`. Registered under the `cubrid.aiopycubrid` entry point for use with `create_async_engine("cubrid+aiopycubrid://...")`.
 
 #### Reflection Methods (All Implemented)
 
@@ -309,6 +312,7 @@ Limitations imposed by CUBRID itself (not the dialect):
 | `IS DISTINCT FROM` | ❌ | Not a CUBRID SQL operator |
 | `RELEASE SAVEPOINT` | ❌ | Dialect implements as no-op |
 | Check constraint reflection | ❌ | CUBRID parses but ignores CHECK |
+| Async DBAPI support | ✅ | Via pycubrid.aio async driver (`cubrid+aiopycubrid://`) |
 | Two-phase commit (XA) | ❌ | CUBRID has no distributed transaction support |
 | Server-side cursors | ❌ | CUBRID Python driver limitation |
 | Alembic ALTER COLUMN TYPE | ❌ | Use `batch_alter_table` workaround |
@@ -384,7 +388,7 @@ Limitations imposed by CUBRID itself (not the dialect):
 |---|---|---|---|
 | SQLAlchemy 2.1 compatibility | Track SA 2.1 breaking changes, update dialect accordingly | High | ⏳ SA 2.1 not released |
 | SQLAlchemy 2.2+ forward compat | Test and adjust for future SA releases | High | ⏳ Not released |
-| Async DBAPI support | If CUBRID Python driver adds async support, implement `create_async_engine` compatibility | Medium | ⏳ Driver has no async |
+| Async DBAPI support | If CUBRID Python driver adds async support, implement `create_async_engine` compatibility | Medium | ✅ Done |
 | Type annotation improvements | Add full `overload` signatures for `insert()`, `merge()` return types | Medium | ✅ Done |
 | `RETURNING` emulation | Investigate TRIGGER-based or `LAST_INSERT_ID` workaround for single-row returning | Low | ⏳ Not started |
 
