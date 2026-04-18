@@ -595,22 +595,20 @@ class TestFetchShapeCompatibility:
         class BulkUser(_Base):
             __tablename__ = "imv_bulk_test"
             id: Mapped[int] = mapped_column(
-                Integer, primary_key=True, autoincrement=True,
+                Integer,
+                primary_key=True,
+                autoincrement=True,
             )
             name: Mapped[str] = mapped_column(String(100))
 
         _Base.metadata.create_all(engine)
         try:
             with Session(engine) as session:
-                session.add_all(
-                    [BulkUser(name=f"user_{i}") for i in range(10)]
-                )
+                session.add_all([BulkUser(name=f"user_{i}") for i in range(10)])
                 session.commit()
 
             with engine.connect() as conn:
-                count = conn.execute(
-                    text("SELECT COUNT(*) FROM imv_bulk_test")
-                ).scalar()
+                count = conn.execute(text("SELECT COUNT(*) FROM imv_bulk_test")).scalar()
                 assert count == 10
         finally:
             _Base.metadata.drop_all(engine)
