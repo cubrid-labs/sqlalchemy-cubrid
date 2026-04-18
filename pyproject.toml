@@ -67,6 +67,7 @@ Issues = "https://github.com/cubrid-labs/sqlalchemy-cubrid/issues"
 cubrid = "sqlalchemy_cubrid.dialect:CubridDialect"
 "cubrid.cubrid" = "sqlalchemy_cubrid.dialect:CubridDialect"
 "cubrid.pycubrid" = "sqlalchemy_cubrid.pycubrid_dialect:PyCubridDialect"
+"cubrid.aiopycubrid" = "sqlalchemy_cubrid.aio_pycubrid_dialect:PyCubridAsyncDialect"
 
 [project.entry-points."alembic.ddl"]
 cubrid = "sqlalchemy_cubrid.alembic_impl:CubridImpl"
