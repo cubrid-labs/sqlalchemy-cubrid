@@ -37,6 +37,7 @@ test: ## Run offline tests with coverage (no DB required)
 	$(PYTEST) $(TESTS)/ -v \
 		--ignore=$(TESTS)/test_integration.py \
 		--ignore=$(TESTS)/test_suite.py \
+		--ignore=$(TESTS)/test_aio_integration.py \
 		--cov=$(SRC) \
 		--cov-report=term-missing \
 		--cov-fail-under=95

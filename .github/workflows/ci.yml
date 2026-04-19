@@ -72,6 +72,7 @@ jobs:
             test/ \
             --ignore=test/test_integration.py \
             --ignore=test/test_suite.py \
+            --ignore=test/test_aio_integration.py \
             -v --tb=short \
             --cov=sqlalchemy_cubrid \
             --cov-report=term-missing \
