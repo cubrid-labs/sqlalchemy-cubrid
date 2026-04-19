@@ -338,14 +338,24 @@ class TestReflectionMethods:
     def test_get_foreign_keys_success_and_exception(self):
         dialect = CubridDialect()
 
+        ddl = (
+            "CREATE TABLE [orders] (\n"
+            "  [id] INTEGER NOT NULL,\n"
+            "  CONSTRAINT [pk_orders] PRIMARY KEY ([id]),\n"
+            "  CONSTRAINT [fk_order_user] FOREIGN KEY ([user_id], [tenant_id]) "
+            "REFERENCES [dba.users] ([id], [tenant_id]) "
+            "ON DELETE RESTRICT ON UPDATE RESTRICT,\n"
+            "  CONSTRAINT [fk_order_legacy] FOREIGN KEY ([legacy_id]) "
+            "REFERENCES [legacy] ([id])\n"
+            ")"
+        )
+
         success_conn = MagicMock()
         success_conn.info_cache = {}
         success_conn.dialect_options = {}
-        success_conn.execute.return_value = [
-            ("fk_order_user", "orders", "user_id", "users", "id"),
-            ("fk_order_user", "orders", "tenant_id", "users", "tenant_id"),
-            ("fk_no_ref_col", "orders", "legacy_id", "legacy", None),
-        ]
+        success_result = MagicMock()
+        success_result.fetchone.return_value = ("orders", ddl)
+        success_conn.execute.return_value = success_result
 
         fks = _invoke_reflection(
             dialect,
@@ -358,12 +368,14 @@ class TestReflectionMethods:
         assert len(fks) == 2
         first = next(item for item in fks if item["name"] == "fk_order_user")
         assert first["constrained_columns"] == ["user_id", "tenant_id"]
+        # Owner prefix (``dba.``) must be stripped from the referenced table.
         assert first["referred_table"] == "users"
         assert first["referred_columns"] == ["id", "tenant_id"]
         assert first["referred_schema"] == "main"
 
-        second = next(item for item in fks if item["name"] == "fk_no_ref_col")
-        assert second["referred_columns"] == []
+        second = next(item for item in fks if item["name"] == "fk_order_legacy")
+        assert second["referred_table"] == "legacy"
+        assert second["referred_columns"] == ["id"]
 
         failed_conn = MagicMock()
         failed_conn.info_cache = {}
@@ -420,11 +432,13 @@ class TestReflectionMethods:
         connection.info_cache = {}
         connection.dialect_options = {}
 
-        # Batch PK query returns index_name, is_primary_key pairs
-        pk_batch_result = [
-            ("uq_name", 0),
-            ("pk_users", 1),
-            ("idx_email", 0),
+        # Single batch query returns (index_name, is_primary_key, is_foreign_key)
+        # tuples for every index on the table.  PK and FK auto-indexes are
+        # filtered from the SHOW INDEXES output.
+        flag_rows = [
+            ("uq_name", 0, 0),
+            ("pk_users", 1, 0),
+            ("idx_email", 0, 0),
         ]
 
         show_indexes_rows = [
@@ -435,7 +449,7 @@ class TestReflectionMethods:
         ]
 
         connection.execute.side_effect = [
-            pk_batch_result,  # batch PK query
+            flag_rows,  # batch _db_index query
             show_indexes_rows,  # SHOW INDEXES
         ]
 
@@ -447,7 +461,7 @@ class TestReflectionMethods:
         ]
 
     def test_get_indexes_batch_pk_query_failure(self):
-        """When the batch PK catalog query fails, all indexes are returned."""
+        """When the batch catalog query fails, all indexes are returned."""
         dialect = CubridDialect()
         connection = MagicMock()
         connection.info_cache = {}
@@ -459,28 +473,67 @@ class TestReflectionMethods:
         ]
 
         connection.execute.side_effect = [
-            RuntimeError("catalog unavailable"),  # batch PK query fails
+            RuntimeError("catalog unavailable"),  # batch flag query fails
             show_indexes_rows,  # SHOW INDEXES
         ]
 
         indexes = _invoke_reflection(dialect, "get_indexes", connection, "users")
 
-        # Both indexes returned since PK detection failed gracefully
+        # Both indexes returned since PK/FK detection failed gracefully.
         assert len(indexes) == 2
         assert indexes[0]["name"] == "uq_name"
         assert indexes[1]["name"] == "pk_users"
 
+    def test_get_indexes_excludes_fk_auto_indexes(self):
+        """FK auto-indexes (``_db_index.is_foreign_key`` true) are filtered.
+
+        See cubrid-labs/sqlalchemy-cubrid#120 — otherwise Alembic
+        autogenerate emits spurious drop_index/create_index diffs.
+        """
+        dialect = CubridDialect()
+        connection = MagicMock()
+        connection.info_cache = {}
+        connection.dialect_options = {}
+
+        flag_rows = [
+            ("fk_orders_user", 0, 1),
+            ("fk_orders_product", 0, 1),
+            ("idx_orders_status", 0, 0),
+        ]
+
+        connection.execute.side_effect = [
+            flag_rows,
+            [
+                (None, 1, "fk_orders_user", None, "user_id"),
+                (None, 1, "fk_orders_product", None, "product_id"),
+                (None, 1, "idx_orders_status", None, "status"),
+            ],
+        ]
+
+        indexes = _invoke_reflection(dialect, "get_indexes", connection, "orders")
+
+        assert indexes == [
+            {"name": "idx_orders_status", "column_names": ["status"], "unique": False},
+        ]
+
     def test_get_unique_constraints_success_and_exception(self):
         dialect = CubridDialect()
+
+        ddl = (
+            "CREATE TABLE [users] (\n"
+            "  [id] INTEGER NOT NULL,\n"
+            "  CONSTRAINT [pk_users] PRIMARY KEY ([id]),\n"
+            "  CONSTRAINT [uq_users_email] UNIQUE KEY ([email], [tenant_id]),\n"
+            "  CONSTRAINT [uq_users_name] UNIQUE KEY ([name])\n"
+            ")"
+        )
 
         success_conn = MagicMock()
         success_conn.info_cache = {}
         success_conn.dialect_options = {}
-        success_conn.execute.return_value = [
-            ("uq_users_email", "email"),
-            ("uq_users_email", "tenant_id"),
-            ("uq_users_name", "name"),
-        ]
+        success_result = MagicMock()
+        success_result.fetchone.return_value = ("users", ddl)
+        success_conn.execute.return_value = success_result
 
         unique_constraints = _invoke_reflection(
             dialect,

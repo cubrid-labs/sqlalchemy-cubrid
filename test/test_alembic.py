@@ -259,3 +259,43 @@ class TestCubridImplAutogenerate:
         metadata_column = sa.Column("v", cubrid_types.MULTISET("a", "b"))
 
         assert impl.compare_type(inspector_column, metadata_column) is True
+
+    def test_compare_type_text_vs_varchar_max_no_diff(self):
+        """Text() vs VARCHAR(1073741823) must NOT be reported as a type change.
+
+        See cubrid-labs/sqlalchemy-cubrid#120 — CUBRID stores Text/CLOB/STRING
+        as VARCHAR(1073741823) so reflection round-trips trip Alembic's
+        default compare_type.
+        """
+        from sqlalchemy_cubrid.alembic_impl import CubridImpl
+
+        impl = object.__new__(CubridImpl)
+        inspector_column = sa.Column("v", cubrid_types.VARCHAR(1073741823))
+        for metadata_type in (sa.Text(), cubrid_types.CLOB(), cubrid_types.STRING()):
+            metadata_column = sa.Column("v", metadata_type)
+            assert impl.compare_type(inspector_column, metadata_column) is False
+            # Reverse direction must also hold.
+            assert impl.compare_type(metadata_column, inspector_column) is False
+
+    def test_compare_type_varchar_max_vs_string_no_length_no_diff(self):
+        """Plain String() (no length) maps to VARCHAR(max) on CUBRID."""
+        from sqlalchemy_cubrid.alembic_impl import CubridImpl
+
+        impl = object.__new__(CubridImpl)
+        inspector_column = sa.Column("v", cubrid_types.VARCHAR(1073741823))
+        metadata_column = sa.Column("v", sa.String())
+        assert impl.compare_type(inspector_column, metadata_column) is False
+
+    def test_compare_type_varchar_bounded_still_compared(self):
+        """VARCHAR(100) vs Text() must still be detected as a real diff."""
+        from alembic.ddl.impl import DefaultImpl
+
+        from sqlalchemy_cubrid.alembic_impl import CubridImpl
+
+        impl = object.__new__(CubridImpl)
+        inspector_column = sa.Column("v", cubrid_types.VARCHAR(100))
+        metadata_column = sa.Column("v", sa.Text())
+        with mock.patch.object(DefaultImpl, "compare_type", return_value=True) as m:
+            result = impl.compare_type(inspector_column, metadata_column)
+        assert result is True
+        m.assert_called_once()

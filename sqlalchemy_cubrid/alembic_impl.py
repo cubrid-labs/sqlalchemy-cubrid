@@ -76,6 +76,15 @@ class CubridImpl(DefaultImpl):
 
     _collection_type_names: set[str] = {"SET", "MULTISET", "SEQUENCE"}
 
+    # CUBRID's STRING / CLOB / Text are stored physically as
+    # VARCHAR(1073741823).  When SQLAlchemy's reflection round-trips a
+    # ``Text`` / ``CLOB`` / ``STRING`` column it sees a VARCHAR with that
+    # exact length, which trips Alembic's default compare_type into
+    # reporting a spurious type change on every autogenerate run
+    # (see cubrid-labs/sqlalchemy-cubrid#120).
+    _CUBRID_UNBOUNDED_VARCHAR_LENGTH: int = 1073741823
+    _unbounded_string_type_names: set[str] = {"TEXT", "CLOB", "STRING"}
+
     @staticmethod
     def _normalize_collection_value(value: object) -> str:
         if isinstance(value, str):
@@ -115,6 +124,11 @@ class CubridImpl(DefaultImpl):
         inspector_type = inspector_column.type
         metadata_type = metadata_column.type
 
+        # Suppress false-positive Text/CLOB/STRING vs VARCHAR(max) diffs.
+        # See ``_CUBRID_UNBOUNDED_VARCHAR_LENGTH`` docstring above.
+        if self._is_unbounded_string_match(inspector_type, metadata_type):
+            return False
+
         inspector_name = inspector_type.__class__.__name__
         metadata_name = metadata_type.__class__.__name__
 
@@ -143,3 +157,29 @@ class CubridImpl(DefaultImpl):
             return inspector_values != metadata_values
 
         return set(inspector_values) != set(metadata_values)
+
+    @classmethod
+    def _is_unbounded_string_match(
+        cls, inspector_type: TypeEngine[Any], metadata_type: TypeEngine[Any]
+    ) -> bool:
+        """Return ``True`` when one side is an unbounded string type and the other is a VARCHAR sized to CUBRID's STRING maximum length."""
+        return cls._matches_unbounded_pair(
+            inspector_type, metadata_type
+        ) or cls._matches_unbounded_pair(metadata_type, inspector_type)
+
+    @classmethod
+    def _matches_unbounded_pair(
+        cls, varchar_side: TypeEngine[Any], unbounded_side: TypeEngine[Any]
+    ) -> bool:
+        if varchar_side.__class__.__name__ != "VARCHAR":
+            return False
+        if getattr(varchar_side, "length", None) != cls._CUBRID_UNBOUNDED_VARCHAR_LENGTH:
+            return False
+        unbounded_name = unbounded_side.__class__.__name__.upper()
+        if unbounded_name in cls._unbounded_string_type_names:
+            return True
+        # Plain SQLAlchemy String() with no length declared also maps to
+        # VARCHAR(1073741823) on CUBRID.
+        if unbounded_name == "STRING" or unbounded_name.endswith("STRING"):
+            return getattr(unbounded_side, "length", None) is None
+        return False
