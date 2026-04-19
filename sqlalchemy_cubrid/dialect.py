@@ -78,6 +78,29 @@ _RE_TYPE_PARAMS = re.compile(r"\([\d,]+\)")
 _RE_LENGTH = re.compile(r"\((\d+)\)")
 _RE_PRECISION_SCALE = re.compile(r"\((\d+)(?:,\s*(\d+))?\)")
 
+# CUBRID's ``SHOW CREATE TABLE`` emits foreign-key clauses such as::
+#
+#     CONSTRAINT [fk_name] FOREIGN KEY ([col1], [col2]) REFERENCES
+#         [owner.ref_table] ([rcol1], [rcol2]) ON DELETE ... ON UPDATE ...
+#
+# We parse this DDL fragment because CUBRID exposes no queryable view that
+# carries the referenced table/columns alongside the constraint name.
+_RE_FOREIGN_KEY = re.compile(
+    r"CONSTRAINT\s+\[(?P<name>[^\]]+)\]\s+FOREIGN\s+KEY\s*"
+    r"\((?P<cols>[^)]+)\)\s+REFERENCES\s+"
+    r"\[(?P<ref_table>[^\]]+)\]\s*\((?P<ref_cols>[^)]+)\)",
+    re.IGNORECASE,
+)
+# Parses ``CONSTRAINT [name] UNIQUE KEY ([col1], [col2])`` from
+# ``SHOW CREATE TABLE`` output.  Same rationale as ``_RE_FOREIGN_KEY`` —
+# CUBRID's ``db_constraint`` view is not queryable in 11.x.
+_RE_UNIQUE_KEY = re.compile(
+    r"CONSTRAINT\s+\[(?P<name>[^\]]+)\]\s+UNIQUE\s+KEY\s*"
+    r"\((?P<cols>[^)]+)\)",
+    re.IGNORECASE,
+)
+_RE_BRACKET_IDENT = re.compile(r"\[([^\]]+)\]")
+
 
 # -----------------------------------------------------------------------
 # Column-spec and ischema_names mappings
@@ -374,45 +397,45 @@ class CubridDialect(default.DefaultDialect):
     ) -> list[ReflectedForeignKeyConstraint]:
         """Return foreign key information for *table_name*.
 
-        Uses ``db_constraint`` system table to retrieve FK constraints.
+        Parses ``SHOW CREATE TABLE`` output to extract FK constraints.
+        CUBRID exposes no queryable ``db_constraint`` view (despite older
+        documentation referencing it), so the DDL string is the only
+        reliable source for FK metadata that includes the referenced table
+        and columns. See cubrid-labs/sqlalchemy-cubrid#120.
         """
         foreign_keys: list[ReflectedForeignKeyConstraint] = []
         try:
-            result = connection.execute(
-                text(
-                    "SELECT c.constraint_name, c.class_name, "
-                    "a.attr_name, c.ref_class_name, ra.attr_name "
-                    "FROM db_constraint c "
-                    "JOIN _db_index_key a ON c.index_name = a.index_name "
-                    "LEFT JOIN db_constraint rc ON c.ref_class_name = rc.class_name "
-                    "  AND rc.type = 0 "
-                    "LEFT JOIN _db_index_key ra ON rc.index_name = ra.index_name "
-                    "  AND a.key_order = ra.key_order "
-                    "WHERE c.class_name = :table AND c.type = 3 "
-                    "ORDER BY c.constraint_name, a.key_order"
-                ),
-                {"table": table_name},
+            quoted = self.identifier_preparer.quote_identifier(table_name)
+            result = connection.execute(text(f"SHOW CREATE TABLE {quoted}"))
+            row = result.fetchone()
+        except Exception:  # nosec B110 — graceful fallback when DDL unavailable
+            return foreign_keys
+        if row is None:
+            return foreign_keys
+        ddl = str(row[1]) if len(row) > 1 else str(row[0])
+        for fk_match in _RE_FOREIGN_KEY.finditer(ddl):
+            constraint_name = fk_match.group("name")
+            constrained_columns = [
+                col.strip()
+                for col in _RE_BRACKET_IDENT.findall(fk_match.group("cols"))
+            ]
+            ref_table_raw = fk_match.group("ref_table")
+            # CUBRID prefixes referenced tables with the owner (e.g.
+            # ``dba.budget_categories``) — strip it for SQLAlchemy.
+            ref_table = ref_table_raw.split(".", 1)[-1]
+            referred_columns = [
+                col.strip()
+                for col in _RE_BRACKET_IDENT.findall(fk_match.group("ref_cols"))
+            ]
+            foreign_keys.append(
+                {
+                    "name": constraint_name,
+                    "constrained_columns": constrained_columns,
+                    "referred_schema": schema,
+                    "referred_table": ref_table,
+                    "referred_columns": referred_columns,
+                }
             )
-
-            fk_dict: dict[str, ReflectedForeignKeyConstraint] = {}
-            for row in result:
-                name = row[0]
-                if name not in fk_dict:
-                    fk_dict[name] = {
-                        "name": name,
-                        "constrained_columns": [],
-                        "referred_schema": schema,
-                        "referred_table": row[3],
-                        "referred_columns": [],
-                    }
-                fk_dict[name]["constrained_columns"].append(row[2])
-                if row[4]:
-                    fk_dict[name]["referred_columns"].append(row[4])
-
-            foreign_keys = list(fk_dict.values())
-        except Exception:  # nosec B110 — graceful fallback when FK info unavailable
-            pass
-
         return foreign_keys
 
     @reflection.cache
@@ -469,31 +492,43 @@ class CubridDialect(default.DefaultDialect):
         """Return index information for *table_name*."""
         idict: dict[str, ReflectedIndex] = {}
 
-        # Batch-fetch primary key flags for all indexes on this table
-        # instead of issuing one query per index (N+1 → 1+1).
+        # Batch-fetch primary-key and foreign-key flags for all indexes on
+        # this table from CUBRID's ``_db_index`` catalog (single query for
+        # both, instead of N+1 lookups).
+        #
+        # PK indexes are filtered because SQLAlchemy reports the PK via
+        # ``get_pk_constraint`` separately.  FK indexes are filtered because
+        # CUBRID auto-creates an index for every foreign key (with the same
+        # name as the FK constraint) and these are an implementation detail
+        # — if reported they cause Alembic autogenerate to emit spurious
+        # ``op.drop_index`` / ``op.create_index`` diffs on every run.
+        # See cubrid-labs/sqlalchemy-cubrid#120.
         pk_indexes: set[str] = set()
+        fk_indexes: set[str] = set()
         try:
-            pk_result = connection.execute(
+            flag_result = connection.execute(
                 text(
-                    "SELECT index_name, is_primary_key FROM _db_index "
-                    "WHERE class_of.class_name = :table"
+                    "SELECT index_name, is_primary_key, is_foreign_key "
+                    "FROM _db_index WHERE class_of.class_name = :table"
                 ),
                 {"table": table_name},
             )
-            for pk_row in pk_result:
-                if pk_row[1]:
-                    pk_indexes.add(pk_row[0])
+            for flag_row in flag_result:
+                if flag_row[1]:
+                    pk_indexes.add(flag_row[0])
+                if flag_row[2]:
+                    fk_indexes.add(flag_row[0])
         except Exception:
-            # Fallback: if catalog query fails, pk_indexes stays empty
-            # so no indexes will be wrongly excluded.
-            log.debug("Batch PK query failed for table %s, falling back", table_name)
+            # Fallback: if the catalog query fails, both sets stay empty so
+            # no indexes will be wrongly excluded.
+            log.debug("Batch index-flag query failed for table %s, falling back", table_name)
 
         quoted = self.identifier_preparer.quote_identifier(table_name)
         result = connection.execute(text(f"SHOW INDEXES IN {quoted}"))
         for row in result:
             index_name = row[2]
 
-            if index_name not in pk_indexes:
+            if index_name not in pk_indexes and index_name not in fk_indexes:
                 if index_name in idict:
                     idict[index_name]["column_names"].append(row[4])
                 else:
@@ -516,25 +551,23 @@ class CubridDialect(default.DefaultDialect):
         """Return unique constraints for *table_name*."""
         unique_constraints: list[ReflectedUniqueConstraint] = []
         try:
-            result = connection.execute(
-                text(
-                    "SELECT c.constraint_name, a.attr_name "
-                    "FROM db_constraint c "
-                    "JOIN _db_index_key a ON c.index_name = a.index_name "
-                    "WHERE c.class_name = :table AND c.type = 1 "
-                    "ORDER BY c.constraint_name, a.key_order"
-                ),
-                {"table": table_name},
+            quoted = self.identifier_preparer.quote_identifier(table_name)
+            result = connection.execute(text(f"SHOW CREATE TABLE {quoted}"))
+            row = result.fetchone()
+        except Exception:  # nosec B110 — graceful fallback when DDL unavailable
+            return unique_constraints
+        if row is None:
+            return unique_constraints
+        ddl = str(row[1]) if len(row) > 1 else str(row[0])
+        for uc_match in _RE_UNIQUE_KEY.finditer(ddl):
+            constraint_name = uc_match.group("name")
+            column_names = [
+                col.strip()
+                for col in _RE_BRACKET_IDENT.findall(uc_match.group("cols"))
+            ]
+            unique_constraints.append(
+                {"name": constraint_name, "column_names": column_names}
             )
-            uc_dict: dict[str, ReflectedUniqueConstraint] = {}
-            for row in result:
-                name = row[0]
-                if name not in uc_dict:
-                    uc_dict[name] = {"name": name, "column_names": []}
-                uc_dict[name]["column_names"].append(row[1])
-            unique_constraints = list(uc_dict.values())
-        except Exception:  # nosec B110 — graceful fallback when UC info unavailable
-            pass
         return unique_constraints
 
     @reflection.cache

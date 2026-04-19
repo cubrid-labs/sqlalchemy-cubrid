@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.2] - 2026-04-19
+
+### Fixed
+
+- **Alembic autogenerate false-positive diffs** (#120):
+  - `get_indexes()` now filters out the implicit indexes that CUBRID auto-creates
+    for every primary-key and foreign-key constraint.  These auto-indexes
+    previously caused Alembic to emit spurious `op.drop_index` /
+    `op.create_index` operations on every `alembic check` / `revision --autogenerate`
+    run.  The dialect now batch-queries `_db_index.is_primary_key` and
+    `_db_index.is_foreign_key` (single round trip) and excludes flagged indexes
+    from the reflection result.
+  - `get_foreign_keys()` rewritten to parse `SHOW CREATE TABLE` output.  The
+    previous implementation queried the `db_constraint` view, which is **not**
+    queryable in CUBRID 11.x (despite older docs referencing it) and silently
+    returned an empty list — leaving Alembic blind to every existing FK and
+    causing it to schedule recreation on every run.
+  - `get_unique_constraints()` rewritten to parse `SHOW CREATE TABLE` output
+    for the same reason as `get_foreign_keys()`.
+- **`compare_type` for unbounded VARCHAR**: `CubridImpl.compare_type()` now
+  treats CUBRID's `VARCHAR(1073741823)` (the physical storage for `STRING`,
+  `CLOB`, `TEXT`, and `String` without a length) as equivalent to SQLAlchemy's
+  `Text()`, `CLOB()`, and `String()` (no length), eliminating false-positive
+  type-change diffs in Alembic autogenerate.
+
 ## [1.2.1] - 2026-04-19
 
 ### Fixed
