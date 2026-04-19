@@ -175,8 +175,8 @@ async with AsyncSession(engine) as session:
 | CUBRID | 10.2, 11.0, 11.2, 11.4 |
 | SQLAlchemy | 2.0–2.1 |
 | Alembic | >=1.7 |
-| pycubrid (sync) | >=1.0 |
-| pycubrid (async) | >=1.1.0 |
+| pycubrid (sync) | >=1.2.0 |
+| pycubrid (async) | >=1.2.0 |
 
 ## FAQ
 
