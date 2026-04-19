@@ -15,12 +15,16 @@ from __future__ import annotations
 
 import importlib
 import sys
+from typing import Any
 from unittest import mock
 
 import pytest
 import sqlalchemy as sa
+from alembic.autogenerate import compare_metadata
+from alembic.migration import MigrationContext
 
 from sqlalchemy_cubrid import types as cubrid_types
+from sqlalchemy_cubrid.dialect import CubridDialect
 
 if sys.version_info >= (3, 11):
     import tomllib as toml_mod
@@ -40,6 +44,121 @@ def _load_pyproject():
 class _AutogenContext:
     def __init__(self):
         self.imports: set[str] = set()
+
+
+class _MockInspector:
+    def __init__(self, bind, tables):
+        self.bind = bind
+        self.dialect = bind.dialect
+        self.info_cache = {}
+        self._tables = tables
+
+    def _table(self, table_name):
+        return self._tables[table_name]
+
+    def get_table_names(self, schema=None):
+        return list(self._tables)
+
+    def get_columns(self, table_name, schema=None, **kw):
+        return self._table(table_name)["columns"]
+
+    def get_pk_constraint(self, table_name, schema=None, **kw):
+        return self._table(table_name).get(
+            "pk_constraint", {"name": None, "constrained_columns": []}
+        )
+
+    def get_foreign_keys(self, table_name, schema=None, **kw):
+        return self._table(table_name).get("foreign_keys", [])
+
+    def get_indexes(self, table_name, schema=None, **kw):
+        return self._table(table_name).get("indexes", [])
+
+    def get_unique_constraints(self, table_name, schema=None, **kw):
+        return self._table(table_name).get("unique_constraints", [])
+
+    def get_table_comment(self, table_name, schema=None, **kw):
+        return self._table(table_name).get("table_comment", {"text": None})
+
+    def get_check_constraints(self, table_name, schema=None, **kw):
+        return []
+
+    def get_table_options(self, table_name, schema=None, **kw):
+        return {}
+
+    def _get_multi(self, method_name, schema=None, filter_names=None):
+        names = filter_names or list(self._tables)
+        method = getattr(self, method_name)
+        return {(schema, name): method(name, schema=schema) for name in names}
+
+    def get_multi_columns(self, schema=None, filter_names=None, **kw):
+        return self._get_multi("get_columns", schema=schema, filter_names=filter_names)
+
+    def get_multi_pk_constraint(self, schema=None, filter_names=None, **kw):
+        return self._get_multi("get_pk_constraint", schema=schema, filter_names=filter_names)
+
+    def get_multi_foreign_keys(self, schema=None, filter_names=None, **kw):
+        return self._get_multi("get_foreign_keys", schema=schema, filter_names=filter_names)
+
+    def get_multi_indexes(self, schema=None, filter_names=None, **kw):
+        return self._get_multi("get_indexes", schema=schema, filter_names=filter_names)
+
+    def get_multi_unique_constraints(self, schema=None, filter_names=None, **kw):
+        return self._get_multi("get_unique_constraints", schema=schema, filter_names=filter_names)
+
+    def get_multi_table_comment(self, schema=None, filter_names=None, **kw):
+        return self._get_multi("get_table_comment", schema=schema, filter_names=filter_names)
+
+    def get_multi_check_constraints(self, schema=None, filter_names=None, **kw):
+        return {(schema, name): [] for name in (filter_names or list(self._tables))}
+
+    def get_multi_table_options(self, schema=None, filter_names=None, **kw):
+        return {(schema, name): {} for name in (filter_names or list(self._tables))}
+
+    def reflect_table(self, table, include_columns=None, resolve_fks=False, _reflect_info=None):
+        table_data = self._table(table.name)
+
+        for column in table_data["columns"]:
+            table.append_column(
+                sa.Column(
+                    column["name"],
+                    column["type"],
+                    nullable=column.get("nullable", True),
+                    comment=column.get("comment"),
+                )
+            )
+
+        pk_constraint = table_data.get("pk_constraint")
+        if pk_constraint and pk_constraint.get("constrained_columns"):
+            table.append_constraint(
+                sa.PrimaryKeyConstraint(
+                    *[table.c[name] for name in pk_constraint["constrained_columns"]],
+                    name=pk_constraint.get("name"),
+                )
+            )
+
+        for unique_constraint in table_data.get("unique_constraints", []):
+            table.append_constraint(
+                sa.UniqueConstraint(
+                    *[table.c[name] for name in unique_constraint["column_names"]],
+                    name=unique_constraint.get("name"),
+                )
+            )
+
+        for foreign_key in table_data.get("foreign_keys", []):
+            referred_schema = foreign_key.get("referred_schema")
+            referred_table = foreign_key["referred_table"]
+            table_name = (
+                f"{referred_schema}.{referred_table}" if referred_schema else referred_table
+            )
+            table.append_constraint(
+                sa.ForeignKeyConstraint(
+                    [table.c[name] for name in foreign_key["constrained_columns"]],
+                    [f"{table_name}.{name}" for name in foreign_key["referred_columns"]],
+                    name=foreign_key.get("name"),
+                )
+            )
+
+        table.comment = table_data.get("table_comment", {}).get("text")
 
 
 class TestCubridImpl:
@@ -299,3 +418,223 @@ class TestCubridImplAutogenerate:
             result = impl.compare_type(inspector_column, metadata_column)
         assert result is True
         m.assert_called_once()
+
+
+class TestAutogenerateRegression:
+    @staticmethod
+    def _make_connection():
+        connection = mock.Mock()
+        dialect = CubridDialect()
+        dialect.supports_comments = True
+        connection.dialect = dialect
+        connection.engine = mock.Mock()
+        connection.execute.return_value = []
+        return connection
+
+    def _compare_metadata(
+        self,
+        metadata,
+        reflected_schema,
+        *,
+        compare_type: bool | Any = True,
+    ):
+        import sqlalchemy_cubrid.alembic_impl  # noqa: F401
+
+        connection = self._make_connection()
+        inspector = _MockInspector(connection, reflected_schema)
+
+        with (
+            mock.patch("alembic.autogenerate.api.inspect", return_value=inspector),
+            mock.patch("alembic.autogenerate.compare.schema.inspect", return_value=inspector),
+        ):
+            context = MigrationContext.configure(
+                connection=connection,
+                opts={"compare_type": compare_type},
+            )
+            return compare_metadata(context, metadata)
+
+    def _assert_empty_diff_twice(
+        self,
+        metadata,
+        reflected_schema,
+        *,
+        compare_type: bool | Any = True,
+    ):
+        assert self._compare_metadata(metadata, reflected_schema, compare_type=compare_type) == []
+        assert self._compare_metadata(metadata, reflected_schema, compare_type=compare_type) == []
+
+    @staticmethod
+    def _compare_type_with_collection_alias(
+        migration_context,
+        inspector_column,
+        metadata_column,
+        inspector_type,
+        metadata_type,
+    ):
+        if (
+            isinstance(inspector_type, cubrid_types.SET)
+            and isinstance(metadata_type, cubrid_types.SET)
+            and len(getattr(inspector_type, "_ddl_values", ())) == 1
+            and isinstance(inspector_type._ddl_values[0], sa.types.TypeEngine)
+            and all(isinstance(value, str) for value in getattr(metadata_type, "_ddl_values", ()))
+        ):
+            return False
+
+        return migration_context.impl.compare_type(inspector_column, metadata_column)
+
+    def test_compare_metadata_no_diffs_for_representative_schema(self):
+        metadata = sa.MetaData()
+
+        sa.Table(
+            "accounts",
+            metadata,
+            sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
+            sa.Column("name", cubrid_types.VARCHAR(255), nullable=False),
+            sa.Column("age", sa.Integer),
+        )
+        sa.Table(
+            "tag_sets",
+            metadata,
+            sa.Column("id", sa.Integer, primary_key=True),
+            sa.Column("tags", cubrid_types.SET(cubrid_types.VARCHAR(100))),
+            sa.Column("scores", cubrid_types.MULTISET(sa.Integer())),
+            sa.Column("aliases", cubrid_types.SEQUENCE(cubrid_types.VARCHAR(50))),
+        )
+        sa.Table(
+            "profiles",
+            metadata,
+            sa.Column("id", sa.Integer, primary_key=True),
+            sa.Column("account_id", sa.Integer, sa.ForeignKey("accounts.id"), nullable=False),
+        )
+        sa.Table(
+            "email_registry",
+            metadata,
+            sa.Column("id", sa.Integer, primary_key=True),
+            sa.Column("email", cubrid_types.VARCHAR(255), nullable=False),
+            sa.UniqueConstraint("email", name="uq_email_registry_email"),
+        )
+        sa.Table(
+            "documented",
+            metadata,
+            sa.Column("id", sa.Integer, primary_key=True, comment="Primary key"),
+            sa.Column("label", cubrid_types.VARCHAR(100), comment="Display label"),
+            comment="Representative comments",
+        )
+        sa.Table(
+            "json_docs",
+            metadata,
+            sa.Column("id", sa.Integer, primary_key=True),
+            sa.Column("payload", cubrid_types.JSON()),
+        )
+
+        reflected_schema = {
+            "accounts": {
+                "columns": [
+                    {"name": "id", "type": sa.Integer(), "nullable": False, "autoincrement": True},
+                    {"name": "name", "type": cubrid_types.VARCHAR(255), "nullable": False},
+                    {"name": "age", "type": sa.Integer(), "nullable": True},
+                ],
+                "pk_constraint": {"name": None, "constrained_columns": ["id"]},
+            },
+            "tag_sets": {
+                "columns": [
+                    {"name": "id", "type": sa.Integer(), "nullable": False},
+                    {"name": "tags", "type": cubrid_types.SET(cubrid_types.VARCHAR(100))},
+                    {"name": "scores", "type": cubrid_types.MULTISET(sa.Integer())},
+                    {"name": "aliases", "type": cubrid_types.SEQUENCE(cubrid_types.VARCHAR(50))},
+                ],
+                "pk_constraint": {"name": None, "constrained_columns": ["id"]},
+            },
+            "profiles": {
+                "columns": [
+                    {"name": "id", "type": sa.Integer(), "nullable": False},
+                    {"name": "account_id", "type": sa.Integer(), "nullable": False},
+                ],
+                "pk_constraint": {"name": None, "constrained_columns": ["id"]},
+                "foreign_keys": [
+                    {
+                        "name": "fk_profiles_account_id_accounts",
+                        "constrained_columns": ["account_id"],
+                        "referred_schema": None,
+                        "referred_table": "accounts",
+                        "referred_columns": ["id"],
+                        "options": {},
+                    }
+                ],
+            },
+            "email_registry": {
+                "columns": [
+                    {"name": "id", "type": sa.Integer(), "nullable": False},
+                    {"name": "email", "type": cubrid_types.VARCHAR(255), "nullable": False},
+                ],
+                "pk_constraint": {"name": None, "constrained_columns": ["id"]},
+                "unique_constraints": [
+                    {"name": "uq_email_registry_email", "column_names": ["email"]}
+                ],
+            },
+            "documented": {
+                "columns": [
+                    {
+                        "name": "id",
+                        "type": sa.Integer(),
+                        "nullable": False,
+                        "comment": "Primary key",
+                    },
+                    {
+                        "name": "label",
+                        "type": cubrid_types.VARCHAR(100),
+                        "nullable": True,
+                        "comment": "Display label",
+                    },
+                ],
+                "pk_constraint": {"name": None, "constrained_columns": ["id"]},
+                "table_comment": {"text": "Representative comments"},
+            },
+            "json_docs": {
+                "columns": [
+                    {"name": "id", "type": sa.Integer(), "nullable": False},
+                    {"name": "payload", "type": cubrid_types.JSON(), "nullable": True},
+                ],
+                "pk_constraint": {"name": None, "constrained_columns": ["id"]},
+            },
+        }
+
+        self._assert_empty_diff_twice(metadata, reflected_schema)
+
+    def test_compare_metadata_no_diffs_for_known_false_positive_aliases(self):
+        metadata = sa.MetaData()
+
+        sa.Table(
+            "autogen_aliases",
+            metadata,
+            sa.Column("id", sa.Integer, primary_key=True),
+            sa.Column("is_active", sa.Boolean(), nullable=False),
+            sa.Column("username", cubrid_types.VARCHAR(255), nullable=False),
+            sa.Column("tags", cubrid_types.SET("a", "b")),
+        )
+
+        reflected_schema = {
+            "autogen_aliases": {
+                "columns": [
+                    {"name": "id", "type": sa.Integer(), "nullable": False},
+                    {"name": "is_active", "type": cubrid_types.SMALLINT(), "nullable": False},
+                    {
+                        "name": "username",
+                        "type": cubrid_types.VARCHAR(255),
+                        "nullable": False,
+                    },
+                    {
+                        "name": "tags",
+                        "type": cubrid_types.SET(cubrid_types.VARCHAR(100)),
+                        "nullable": True,
+                    },
+                ],
+                "pk_constraint": {"name": None, "constrained_columns": ["id"]},
+            }
+        }
+
+        self._assert_empty_diff_twice(
+            metadata,
+            reflected_schema,
+            compare_type=self._compare_type_with_collection_alias,
+        )

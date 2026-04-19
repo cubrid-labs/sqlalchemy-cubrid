@@ -65,7 +65,7 @@ These will be migrated to public APIs when SA 2.2 is released.
 | Feature | Status | Notes |
 |---|---|---|
 | `create_engine()` | ✅ | Both `cubrid://` and `cubrid+pycubrid://` schemes |
-| Async engine | ✅ | `create_async_engine("cubrid+aiopycubrid://...")` |
+| Async engine | ✅ | `create_async_engine("cubrid+aiopycubrid://...")`, supported since v1.1.0 |
 | SQL compilation | ✅ | SELECT, INSERT, UPDATE, DELETE, JOIN, subqueries |
 | DDL compilation | ✅ | CREATE TABLE, ALTER, DROP, AUTO_INCREMENT, COMMENT |
 | Type system | ✅ | All CUBRID types mapped (see below) |
@@ -111,7 +111,7 @@ These will be migrated to public APIs when SA 2.2 is released.
 
 | Feature | Status | Notes |
 |---|---|---|
-| JSON type | ❌ | CUBRID has JSON since 10.2, but not yet mapped in dialect |
+| JSON type | ✅ | Since v1.2.0, requires CUBRID ≥ 10.2 |
 | Native Enum | ❌ | CUBRID lacks ENUM — use VARCHAR + CHECK constraint |
 | Interval type | ❌ | Not supported by CUBRID |
 | RETURNING clause | ❌ | `INSERT/UPDATE/DELETE ... RETURNING` not supported |
@@ -122,7 +122,7 @@ These will be migrated to public APIs when SA 2.2 is released.
 | RELEASE SAVEPOINT | ❌ | No-op (CUBRID doesn't support it) |
 | Lateral joins | ❌ | CUBRID lacks LATERAL subquery support |
 | Full-text search | ❌ | No MATCH … AGAINST syntax |
-| Async DBAPI | ✅ | Via pycubrid.aio async driver (`cubrid+aiopycubrid://`) |
+| Async DBAPI | ✅ | Via pycubrid.aio async driver (`cubrid+aiopycubrid://`), requires pycubrid ≥ 1.1.0 |
 
 ---
 
@@ -160,7 +160,7 @@ These will be migrated to public APIs when SA 2.2 is released.
 
 | Dimension | Values |
 |---|---|
-| Python (offline) | 3.10, 3.11, 3.12, 3.13 |
+| Python (offline) | 3.10, 3.11, 3.12, 3.13, 3.14 |
 | Python (integration) | 3.10, 3.12 |
 | CUBRID (integration) | 10.2, 11.0, 11.2, 11.4 |
 
@@ -168,9 +168,9 @@ These will be migrated to public APIs when SA 2.2 is released.
 
 | Metric | Value |
 |---|---|
-| Offline tests | 426 |
-| Integration tests | 29 |
-| Line coverage | 99.47% |
+| Offline tests | 577 |
+| Integration tests | 35 sync + 16 async |
+| Line coverage | See CI / Codecov for latest exact value |
 | Coverage threshold | 95% (CI-enforced) |
 
 ---

@@ -22,7 +22,7 @@ Comprehensive solutions for common sqlalchemy-cubrid issues — connection setup
   - [LIMIT / OFFSET Syntax](#limit--offset-syntax)
   - [CAST Type Limitations](#cast-type-limitations)
   - [Reserved Word Conflicts](#reserved-word-conflicts)
-  - [No JSON Type Support](#no-json-type-support)
+  - [JSON Type Usage](#json-type-usage)
 - [Type Mapping Issues](#type-mapping-issues)
   - [Boolean Mapped to SMALLINT](#boolean-mapped-to-smallint)
   - [Text Mapped to STRING](#text-mapped-to-string)
@@ -293,7 +293,7 @@ CompileError: RETURNING is not supported by this dialect
 
 **Cause:** CUBRID does not support `INSERT ... RETURNING` or `UPDATE ... RETURNING`.
 
-**Fix:** Use `cursor.lastrowid` or `SELECT LAST_INSERT_ID()`:
+**Fix:** The dialect handles this automatically via `get_last_insert_id()` on the driver connection. You can also use `SELECT LAST_INSERT_ID()`:
 
 ```python
 from sqlalchemy import insert, select, text
@@ -442,17 +442,40 @@ The `CubridIdentifierPreparer` handles quoting automatically for reserved words.
 
 ---
 
-### No JSON Type Support
+### JSON Type Usage
 
-**Symptom:**
+**Status:** JSON is supported in sqlalchemy-cubrid since v1.2.0 and requires CUBRID ≥ 10.2.
+
+**Basic usage:**
+
+```python
+from sqlalchemy import Column, MetaData, Table, select
+from sqlalchemy_cubrid import JSON
+
+metadata = MetaData()
+
+config = Table(
+    "config",
+    metadata,
+    Column("data", JSON),
+)
+```
+
+**Path access:** `col["key"]` compiles to `JSON_EXTRACT(...)` on CUBRID.
+
+```python
+stmt = select(config.c.data["theme"])
+```
+
+**If you see this error:**
 
 ```
 CompileError: JSON is not supported by this dialect
 ```
 
-**Cause:** CUBRID does not have a native JSON data type.
+upgrade to `sqlalchemy-cubrid>=1.2.0`.
 
-**Workaround:** Store JSON as `VARCHAR` or `STRING` (CLOB-like) and serialize/deserialize in Python:
+**Workaround for CUBRID < 10.2:** Store JSON as `VARCHAR` or `STRING` and serialize/deserialize in Python:
 
 ```python
 import json
@@ -699,7 +722,7 @@ with Session(engine) as session:
     session.commit()
 ```
 
-The dialect implements `get_lastrowid()` in `CubridExecutionContext` which calls `cursor.lastrowid`.
+The dialect implements `get_lastrowid()` in `CubridExecutionContext` which calls `raw_conn.get_last_insert_id()` (falling back to `SELECT LAST_INSERT_ID()` via SQL if the driver method is unavailable).
 
 ---
 
@@ -1202,7 +1225,7 @@ flowchart TD
     c1 -->|Yes| c3[Enable pool_pre_ping and review SESSION_TIMEOUT]
 
     sql --> s1{Using unsupported feature?}
-    s1 -->|RETURNING / JSON / ARRAY| s2[Refactor using supported CUBRID patterns]
+    s1 -->|RETURNING / ARRAY| s2[Refactor using supported CUBRID patterns]
     s1 -->|No| s3[Enable SQLAlchemy echo and inspect raw SQL]
 
     mig --> m1[Split migration into atomic DDL steps]

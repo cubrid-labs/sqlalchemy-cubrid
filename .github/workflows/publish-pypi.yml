@@ -19,8 +19,121 @@ permissions:
   id-token: write  # Required for Trusted Publisher (OIDC)
 
 jobs:
+  verify:
+    name: Pre-publish verification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Version consistency check
+        run: |
+          PYPROJECT_VER=$(grep -oP '^version = "\K[^"]+' pyproject.toml)
+          INIT_VER=$(python3 -c "import ast; print(next(node.value.value for node in ast.walk(ast.parse(open('sqlalchemy_cubrid/__init__.py').read())) if isinstance(node, ast.Assign) and any(t.id == '__version__' for t in node.targets if isinstance(t, ast.Name))))")
+
+          echo "pyproject.toml: $PYPROJECT_VER"
+          echo "__init__.py:    $INIT_VER"
+
+          if [ "$PYPROJECT_VER" != "$INIT_VER" ]; then
+            echo "::error::Version mismatch: pyproject.toml=$PYPROJECT_VER, __init__.py=$INIT_VER"
+            exit 1
+          fi
+
+          echo "VERSION=$PYPROJECT_VER" >> $GITHUB_ENV
+
+      - name: Verify CHANGELOG entry
+        run: |
+          if ! grep -qP "^## \[$VERSION\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md missing entry for $VERSION"
+            exit 1
+          fi
+          CHANGELOG_LINE=$(grep -P "^## \[$VERSION\]" CHANGELOG.md | head -1)
+          echo "CHANGELOG: $CHANGELOG_LINE"
+          if ! echo "$CHANGELOG_LINE" | grep -qP "\d{4}-\d{2}-\d{2}"; then
+            echo "::error::CHANGELOG entry for $VERSION has no release date"
+            exit 1
+          fi
+
+      - name: Verify tag matches version (release trigger only)
+        if: github.event_name == 'release'
+        run: |
+          EXPECTED_TAG="v$VERSION"
+          ACTUAL_TAG="${{ github.event.release.tag_name }}"
+          echo "Expected tag: $EXPECTED_TAG"
+          echo "Actual tag:   $ACTUAL_TAG"
+          if [ "$EXPECTED_TAG" != "$ACTUAL_TAG" ]; then
+            echo "::error::Tag name mismatch: expected $EXPECTED_TAG, got $ACTUAL_TAG"
+            exit 1
+          fi
+
+      - name: Verify tag commit matches release target (release trigger only)
+        if: github.event_name == 'release'
+        run: |
+          EXPECTED_TAG="v$VERSION"
+          TAG_COMMIT=$(git rev-list -n 1 "$EXPECTED_TAG" 2>/dev/null || echo "")
+          RELEASE_TARGET="${{ github.event.release.target_commitish }}"
+          if [ "$RELEASE_TARGET" = "main" ]; then
+            RELEASE_TARGET=$(git rev-parse origin/main)
+          fi
+          echo "Tag commit:      $TAG_COMMIT"
+          echo "Release target:  $RELEASE_TARGET"
+          if [ -z "$TAG_COMMIT" ]; then
+            echo "::error::Tag $EXPECTED_TAG not found"
+            exit 1
+          fi
+          if [ "$TAG_COMMIT" != "$RELEASE_TARGET" ]; then
+            echo "::error::Tag $EXPECTED_TAG points to $TAG_COMMIT but release targets $RELEASE_TARGET"
+            exit 1
+          fi
+
+      - name: Verify tag is on main branch (release trigger only)
+        if: github.event_name == 'release'
+        run: |
+          TAG_SHA="${{ github.event.release.target_commitish }}"
+          if [ "$TAG_SHA" = "main" ]; then
+            TAG_SHA=$(git rev-parse origin/main)
+          fi
+          MAIN_SHA=$(git rev-parse origin/main)
+          echo "Release target: $TAG_SHA"
+          echo "Main HEAD:      $MAIN_SHA"
+          if ! git merge-base --is-ancestor "$TAG_SHA" origin/main 2>/dev/null; then
+            echo "::error::Release target $TAG_SHA is not on main branch"
+            exit 1
+          fi
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+
+      - name: Build package
+        run: python -m build
+
+      - name: Smoke test wheel install
+        run: |
+          python -m venv /tmp/test-wheel
+          /tmp/test-wheel/bin/pip install dist/*.whl
+          cd /tmp
+          /tmp/test-wheel/bin/python -c "import sqlalchemy_cubrid; print(sqlalchemy_cubrid.__version__)"
+          /tmp/test-wheel/bin/python -c "from sqlalchemy_cubrid import insert, merge, JSON, SET"
+          /tmp/test-wheel/bin/python -c "import importlib.metadata; eps = {ep.name: ep for ep in importlib.metadata.entry_points(group='sqlalchemy.dialects') if ep.name.startswith('cubrid')}; assert 'cubrid' in eps, f'Missing cubrid entry point, found: {list(eps.keys())}'; assert 'cubrid.cubrid' in eps; assert 'cubrid.pycubrid' in eps; assert 'cubrid.aiopycubrid' in eps; print(f'Found {len(eps)} dialect entry points'); [print(f'  {name} -> {ep.load().__module__}.{ep.load().__name__}') for name, ep in sorted(eps.items())]"
+          /tmp/test-wheel/bin/pip install alembic
+          /tmp/test-wheel/bin/python -c "import importlib.metadata; eps = {ep.name: ep for ep in importlib.metadata.entry_points(group='alembic.ddl') if ep.name == 'cubrid'}; assert 'cubrid' in eps; cls = eps['cubrid'].load(); print(f'alembic.ddl cubrid -> {cls.__module__}.{cls.__name__}')"
+          /tmp/test-wheel/bin/python -c "import pathlib, sqlalchemy_cubrid; pkg_dir = pathlib.Path(sqlalchemy_cubrid.__file__).parent; assert (pkg_dir / 'py.typed').exists(), 'py.typed marker missing'; print('py.typed marker: OK')"
+
+      - name: Smoke test sdist install
+        run: |
+          python -m venv /tmp/test-sdist
+          /tmp/test-sdist/bin/pip install dist/*.tar.gz
+          cd /tmp
+          /tmp/test-sdist/bin/python -c "import sqlalchemy_cubrid; print(sqlalchemy_cubrid.__version__)"
+
   deploy:
     runs-on: ubuntu-latest
+    needs: [verify]
     environment: pypi
 
     steps:

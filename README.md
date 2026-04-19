@@ -25,7 +25,7 @@ production-ready SQLAlchemy dialect that supports the modern 2.0–2.1 API.
 **sqlalchemy-cubrid** bridges that gap:
 
 - Full SQLAlchemy 2.0–2.1 dialect with **statement caching** and **PEP 561 typing**
-- **426 offline tests** with **99%+ code coverage** — no database required to run them
+- **577 offline tests** with **99%+ code coverage** — no database required to run them
 - Tested against **4 CUBRID versions** (10.2, 11.0, 11.2, 11.4) across **Python 3.10 -- 3.14**
 - CUBRID-specific DML constructs: `ON DUPLICATE KEY UPDATE`, `MERGE`, `REPLACE INTO`
 - Alembic migration support out of the box
@@ -138,7 +138,16 @@ async with AsyncSession(engine) as session:
 - Schema reflection -- tables, views, columns, PKs, FKs, indexes, unique constraints, comments
 - Alembic migrations via `CubridImpl` (auto-discovered entry point)
 - All 6 CUBRID isolation levels (dual-granularity: class-level + instance-level)
-- Async support — `create_async_engine("cubrid+aiopycubrid://...")` via pycubrid.aio
+- Async support (stable, since v1.1.0) — `create_async_engine("cubrid+aiopycubrid://...")` via pycubrid.aio
+
+## Known Limitations
+
+- **No `RETURNING`** — `INSERT/UPDATE/DELETE ... RETURNING` not supported; use `cursor.lastrowid` or `LAST_INSERT_ID()`
+- **No sequences** — CUBRID uses `AUTO_INCREMENT` only
+- **No multi-schema** — single schema per database
+- **DDL auto-commits** — migrations are not transactional (`transactional_ddl = False`)
+- **SQLAlchemy 2.0–2.1 only** — pinned to `<2.2` due to internal API dependencies ([details](docs/ARCHITECTURE.md))
+- **Async requires pycubrid ≥ 1.1.0** — the `cubrid+aiopycubrid://` driver needs the async-capable pycubrid
 
 ## Documentation
 

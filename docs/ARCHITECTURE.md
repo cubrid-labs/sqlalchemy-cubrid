@@ -4,7 +4,7 @@
 sqlalchemy-cubrid is designed to provide a robust, modern interface between SQLAlchemy and the CUBRID database. Its core design goals include:
 
 *   Full SQLAlchemy 2.0–2.1 dialect implementation
-*   Dual-driver support (C-extension CUBRIDdb + pure Python pycubrid)
+*   Three driver modes (C-extension CUBRIDdb + pure Python pycubrid + async pycubrid.aio)
 *   Schema reflection (tables, columns, constraints, indexes, comments)
 *   Custom DML extensions (ON DUPLICATE KEY UPDATE, MERGE, REPLACE)
 *   Alembic migration support
@@ -92,7 +92,7 @@ sequenceDiagram
     
     App->>SA: metadata.reflect(engine)
     SA->>Dialect: get_table_names(connection)
-    Dialect->>CAS: SHOW TABLES
+    Dialect->>CAS: SELECT class_name FROM db_class
     CAS-->>Dialect: Table list
     
     loop For each table
@@ -105,7 +105,7 @@ sequenceDiagram
       CAS-->>Dialect: PK constraint info
       
       SA->>Dialect: get_foreign_keys(connection, table_name)
-      Dialect->>CAS: SELECT from db_constraint
+      Dialect->>CAS: SHOW CREATE TABLE (parse FK clauses)
       CAS-->>Dialect: FK constraints
       
       SA->>Dialect: get_indexes(connection, table_name)
@@ -121,13 +121,15 @@ The package is organized into specialized modules, each handling a specific aspe
 
 ```mermaid
 flowchart TD
-    init["__init__.py<br/>Public API: types, insert(), merge()"]
+    init["__init__.py<br/>Public API: types, insert(), merge(), replace(), trace_query()"]
     dialect["dialect.py<br/>CubridDialect: reflection, connection, isolation"]
     pycubrid_d["pycubrid_dialect.py<br/>PyCubridDialect: pure Python variant"]
+    aio_pycubrid_d["aio_pycubrid_dialect.py<br/>PyCubridAsyncDialect: async variant"]
     compiler["compiler.py<br/>SQL, DDL, Type compilers"]
     base["base.py<br/>ExecutionContext, IdentifierPreparer"]
     dml["dml.py<br/>ODKU, MERGE, REPLACE constructs"]
     types["types.py<br/>CUBRID type system"]
+    trace_mod["trace.py<br/>Query tracing utility"]
     req["requirements.py<br/>SA test requirement flags"]
     alembic_mod["alembic_impl.py<br/>CubridImpl DDL operations"]
     
@@ -137,16 +139,19 @@ flowchart TD
     dialect --> compiler
     dialect --> types
     pycubrid_d --> dialect
+    aio_pycubrid_d --> pycubrid_d
     compiler --> types
     compiler --> base
+    trace_mod --> dialect
     
     %% External dependencies
     sa["SQLAlchemy 2.0"]
-    pycubrid_pkg["pycubrid (driver)"]
+    pycubrid_pkg["pycubrid / pycubrid.aio (driver)"]
     alembic_pkg["Alembic"]
     
     dialect -.-> sa
     pycubrid_d -.-> pycubrid_pkg
+    aio_pycubrid_d -.-> pycubrid_pkg
     compiler -.-> sa
     alembic_mod -.-> alembic_pkg
     req -.-> sa
@@ -163,6 +168,9 @@ Contains the base `CubridDialect` class, implementing core logic for schema refl
 #### `pycubrid_dialect.py`
 Implements the `PyCubridDialect` variant, which uses the pure Python `pycubrid` driver. It overrides connection argument parsing and connection-time initialization logic.
 
+#### `aio_pycubrid_dialect.py`
+Implements `PyCubridAsyncDialect`, the async dialect variant used by `cubrid+aiopycubrid://`. It adapts `pycubrid.aio` for SQLAlchemy's async engine and `AsyncSession` APIs.
+
 #### `compiler.py`
 Houses the SQL, DDL, and Type compilers. It translates SQLAlchemy's abstract syntax trees into CUBRID-specific SQL dialects, handling nuances like LIMIT/OFFSET and FOR UPDATE clauses.
 
@@ -174,6 +182,9 @@ Defines custom DML constructs for CUBRID-specific features such as `ON DUPLICATE
 
 #### `types.py`
 Implements the CUBRID-specific type system, mapping SQLAlchemy's generic types to CUBRID's internal types like `SET`, `MULTISET`, and `BIT`.
+
+#### `trace.py`
+Provides the `trace_query()` utility for enabling CUBRID query tracing around a statement execution and returning trace output for debugging and performance analysis.
 
 #### `requirements.py`
 Defines feature flags used by the SQLAlchemy test suite to determine which behavioral tests should be executed against a CUBRID backend.
@@ -196,35 +207,40 @@ flowchart TD
     entry -->|"cubrid://"| cubrid_dialect["CubridDialect<br/>(C-extension CUBRIDdb)"]
     entry -->|"cubrid.cubrid://"| cubrid_dialect
     entry -->|"cubrid+pycubrid://"| pycubrid_dialect["PyCubridDialect<br/>(Pure Python pycubrid)"]
+    entry -->|"cubrid+aiopycubrid://"| aio_pycubrid_dialect["PyCubridAsyncDialect<br/>(Async pycubrid.aio)"]
     
     cubrid_dialect --> import_c["import CUBRIDdb"]
     pycubrid_dialect --> import_py["import pycubrid"]
+    aio_pycubrid_dialect --> import_aio["import pycubrid.aio"]
     
     alembic_entry["Entry Point: alembic.ddl → cubrid"]
     alembic_entry --> alembic_impl["CubridImpl<br/>transactional_ddl = False"]
 ```
 
-## Two-Driver Architecture
-The dialect supports both the legacy C-extension driver and the modern pure Python driver through a hierarchical class structure.
+## Driver Architecture
+The dialect supports the legacy C-extension driver, the modern pure Python driver, and the async pycubrid.aio variant through a hierarchical class structure.
 
 ```mermaid
 flowchart TD
     sa_default["sqlalchemy.engine.default<br/>DefaultDialect"]
     cubrid_base["CubridDialect<br/>dialect.py<br/>• reflection<br/>• isolation levels<br/>• type mapping<br/>• import_dbapi() → CUBRIDdb"]
     pycubrid_variant["PyCubridDialect<br/>pycubrid_dialect.py<br/>• import_dbapi() → pycubrid<br/>• create_connect_args()<br/>• on_connect()<br/>• do_ping()"]
+    aio_variant["PyCubridAsyncDialect<br/>aio_pycubrid_dialect.py<br/>• is_async = True<br/>• import_dbapi() → pycubrid.aio adapter<br/>• async connection adaptation"]
     
     sa_default --> cubrid_base
     cubrid_base --> pycubrid_variant
+    pycubrid_variant --> aio_variant
     
     cubrid_base -.->|"loads"| cci["CUBRIDdb<br/>(C-extension driver)"]
     pycubrid_variant -.->|"loads"| pure["pycubrid<br/>(Pure Python driver)"]
+    aio_variant -.->|"loads"| pure_async["pycubrid.aio<br/>(Async pure Python driver)"]
 ```
 
 ## Key Design Decisions
 
 *   **SQLAlchemy < 2.2 pin**: Uses private SA APIs (`select._limit_clause`, `select._offset_clause`, `select._for_update_arg`, `coercions._is_literal`, `BindParameter._with_binary_element_type`) at compiler.py:71, 81-82, 144, 150-151 — requires version pinning until public alternatives exist.
 *   **BOOLEAN → SMALLINT mapping**: CUBRID has no native BOOLEAN — dialect maps to `SMALLINT` (0/1).
-*   **No JSON type mapping (yet)**: CUBRID 10.2+ supports JSON natively, but the dialect doesn't map it yet — JSON columns can still be used via raw SQL.
+*   **JSON type support (v1.2.0+)**: Full JSON type mapping including `JSON`, `JSONIndexType`, `JSONPathType`, with path access via `json_getattr` and `json_getitem_op`. Requires CUBRID ≥ 10.2.
 *   **`transactional_ddl = False`**: CUBRID auto-commits DDL statements — Alembic cannot roll back failed migrations.
 *   **`supports_statement_cache = True`**: Required for SA 2.0 performance — dialect is cache-safe.
 *   **Lowercase identifier folding**: CUBRID folds to lowercase (not SQL-standard uppercase) — `CubridIdentifierPreparer` handles this.
@@ -241,6 +257,7 @@ trace_query() # Query tracing utility
 
 # Types (CUBRID-specific)
 STRING, BIT, CLOB, BLOB, SET, MULTISET, SEQUENCE, MONETARY, OBJECT
+JSON, JSONIndexType, JSONPathType
 NCHAR, NVARCHAR, DOUBLE_PRECISION, REAL
 
 # Types (standard, re-exported)
@@ -251,6 +268,7 @@ CHAR, VARCHAR, DATE, TIME, TIMESTAMP, DATETIME
 cubrid://          → CubridDialect
 cubrid.cubrid://   → CubridDialect  
 cubrid+pycubrid:// → PyCubridDialect
+cubrid+aiopycubrid:// → PyCubridAsyncDialect
 cubrid (alembic)   → CubridImpl
 ```
 

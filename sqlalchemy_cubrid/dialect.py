@@ -341,6 +341,7 @@ class CubridDialect(default.DefaultDialect):
             )
             comment_map = {row[0]: row[1] for row in comment_result}
         except Exception:
+            log.debug("Column comment query failed for %s", table_name, exc_info=True)
             comment_map = {}
 
         for column in columns:
@@ -380,7 +381,7 @@ class CubridDialect(default.DefaultDialect):
                 if row:
                     constraint_name = row[0]
             except Exception:  # nosec B110 — constraint name is optional metadata
-                pass
+                log.debug("PK constraint name query failed for %s", table_name, exc_info=True)
 
         return {
             "name": constraint_name,
@@ -409,6 +410,11 @@ class CubridDialect(default.DefaultDialect):
             result = connection.execute(text(f"SHOW CREATE TABLE {quoted}"))
             row = result.fetchone()
         except Exception:  # nosec B110 — graceful fallback when DDL unavailable
+            log.warning(
+                "SHOW CREATE TABLE failed for %s; foreign keys will be empty",
+                table_name,
+                exc_info=True,
+            )
             return foreign_keys
         if row is None:
             return foreign_keys
@@ -553,6 +559,11 @@ class CubridDialect(default.DefaultDialect):
             result = connection.execute(text(f"SHOW CREATE TABLE {quoted}"))
             row = result.fetchone()
         except Exception:  # nosec B110 — graceful fallback when DDL unavailable
+            log.warning(
+                "SHOW CREATE TABLE failed for %s; unique constraints will be empty",
+                table_name,
+                exc_info=True,
+            )
             return unique_constraints
         if row is None:
             return unique_constraints
@@ -632,6 +643,7 @@ class CubridDialect(default.DefaultDialect):
             )
             return bool(result.scalar())
         except Exception:
+            log.debug("has_index query failed for %s", index_name, exc_info=True)
             return False
 
     def has_sequence(

@@ -457,28 +457,27 @@ stmt = select(User).where(User.is_active == 1)
 stmt = select(User).where(User.is_active == True)  # noqa: E712
 ```
 
-### 3. No JSON Type
+### 3. JSON Type (CUBRID ≥ 10.2)
 
-CUBRID has no JSON column type. Store structured data as serialized strings:
+CUBRID 10.2+ supports a native JSON column type. Since sqlalchemy-cubrid v1.2.0,
+JSON is fully mapped:
 
 ```python
-import json
+from sqlalchemy_cubrid import JSON
 
 
 class Config(Base):
     __tablename__ = "configs"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    data: Mapped[str] = mapped_column(STRING)  # Store JSON as string
+    data = mapped_column(JSON)  # Native JSON column
 
-    @property
-    def parsed_data(self) -> dict:
-        return json.loads(self.data) if self.data else {}
-
-    @parsed_data.setter
-    def parsed_data(self, value: dict) -> None:
-        self.data = json.dumps(value)
+# Path access compiles to JSON_EXTRACT:
+session.query(Config).filter(Config.data["key"] == "value")
 ```
+
+> **CUBRID < 10.2 workaround:** Store JSON as `STRING`/`VARCHAR` and
+> serialize/deserialize in Python. See [Troubleshooting](../docs/TROUBLESHOOTING.md#json-type-usage).
 
 ### 4. Collection Types Instead of ARRAY
 

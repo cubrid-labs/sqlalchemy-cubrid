@@ -9,13 +9,14 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import Any, cast
 
 from sqlalchemy.engine import default
 from sqlalchemy.sql import compiler
 
-
+log = logging.getLogger(__name__)
 AUTOCOMMIT_REGEXP = re.compile(
     r"\s*(?:UPDATE|INSERT|CREATE|DELETE|DROP|ALTER|MERGE|TRUNCATE)", re.I | re.UNICODE
 )
@@ -416,7 +417,7 @@ class CubridExecutionContext(default.DefaultExecutionContext):
                 last_id = raw_conn.get_last_insert_id()
                 return cast(int, None) if last_id is None else int(last_id)  # pyright: ignore[reportInvalidCast]
         except Exception:  # nosec B110 — fallback to SQL when driver lacks method
-            pass
+            log.debug("get_last_insert_id via driver failed, falling back to SQL", exc_info=True)
 
         # Fallback: use SQL function
         cursor = self.create_server_side_cursor()

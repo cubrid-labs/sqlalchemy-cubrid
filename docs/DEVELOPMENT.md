@@ -98,7 +98,10 @@ graph TD
     pkg --> base["base.py - ExecutionContext, IdentifierPreparer"]
     pkg --> compiler["compiler.py - SQL/DDL/Type compilers"]
     pkg --> dialect["dialect.py - CubridDialect (reflection, connection, etc.)"]
+    pkg --> pycubrid_dialect["pycubrid_dialect.py - Pure Python driver dialect"]
+    pkg --> aio_dialect["aio_pycubrid_dialect.py - Async pycubrid.aio dialect"]
     pkg --> dml["dml.py - ON DUPLICATE KEY UPDATE, MERGE constructs"]
+    pkg --> trace["trace.py - Query tracing utility"]
     pkg --> types["types.py - CUBRID type system"]
     pkg --> req["requirements.py - SA 2.0 test requirement flags"]
     pkg --> alembic["alembic_impl.py - Alembic migration support"]
@@ -111,6 +114,12 @@ graph TD
     tests --> treq["test_requirements.py - SA requirement flag tests"]
     tests --> tdml["test_dml.py - DML construct tests"]
     tests --> talembic["test_alembic.py - Alembic integration tests"]
+    tests --> taio["test_aio_pycubrid_dialect.py - Async dialect tests"]
+    tests --> taioint["test_aio_integration.py - Async integration tests"]
+    tests --> tjson["test_json.py - JSON type and path tests"]
+    tests --> tpackaging["test_packaging.py - Packaging and entry point tests"]
+    tests --> tshowcreate["test_show_create_table.py - Reflection parser tests"]
+    tests --> ttrace["test_trace.py - Query trace tests"]
     tests --> tintegration["test_integration.py - Live DB integration tests"]
     tests --> tsuite["test_suite.py - SA test suite runner"]
     tests --> tconftest["conftest.py - Test fixtures"]
@@ -145,10 +154,12 @@ The majority of the test suite runs without a live CUBRID instance:
 
 ```bash
 # Run all offline tests
-pytest test/ -v --ignore=test/test_integration.py --ignore=test/test_suite.py
+pytest test/ -v --ignore=test/test_integration.py --ignore=test/test_suite.py \
+  --ignore=test/test_aio_integration.py
 
 # Run with coverage report
 pytest test/ -v --ignore=test/test_integration.py --ignore=test/test_suite.py \
+  --ignore=test/test_aio_integration.py \
   --cov=sqlalchemy_cubrid --cov-report=term-missing
 
 # Run a specific test file
@@ -172,6 +183,9 @@ export CUBRID_TEST_URL="cubrid://dba@localhost:33000/testdb"
 
 # Run integration tests
 pytest test/test_integration.py -v
+
+# Run async integration tests
+pytest test/test_aio_integration.py -v
 
 # Stop the container
 docker compose down -v
@@ -242,7 +256,7 @@ make integration
 
 ### tox Configuration
 
-The `tox.ini` defines environments for Python 3.10–3.13:
+The `tox.ini` defines local environments for Python 3.10–3.13. GitHub Actions also runs the offline suite on Python 3.14.
 
 ```ini
 [tox]
@@ -270,13 +284,13 @@ tox -e lint
 
 The CI pipeline tests the following matrix:
 
-| | Python 3.10 | Python 3.11 | Python 3.12 | Python 3.13 |
-|---|:---:|:---:|:---:|:---:|
-| **Offline Tests** | ✅ | ✅ | ✅ | ✅ |
-| **CUBRID 11.4** | ✅ | — | ✅ | — |
-| **CUBRID 11.2** | ✅ | — | ✅ | — |
-| **CUBRID 11.0** | ✅ | — | ✅ | — |
-| **CUBRID 10.2** | ✅ | — | ✅ | — |
+| | Python 3.10 | Python 3.11 | Python 3.12 | Python 3.13 | Python 3.14 |
+|---|:---:|:---:|:---:|:---:|:---:|
+| **Offline Tests** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **CUBRID 11.4** | ✅ | — | ✅ | — | — |
+| **CUBRID 11.2** | ✅ | — | ✅ | — | — |
+| **CUBRID 11.0** | ✅ | — | ✅ | — | — |
+| **CUBRID 10.2** | ✅ | — | ✅ | — | — |
 
 ---
 
@@ -285,7 +299,8 @@ The CI pipeline tests the following matrix:
 ### Requirements
 
 - **Minimum threshold**: 95% line coverage
-- **Current coverage**: 99.45% (396 tests, 1082 statements, 6 unreachable)
+- **Current offline collection**: 577 tests (`pytest --collect-only` excluding integration, SA suite, and async integration)
+- **Current line coverage**: See CI / Codecov for the latest exact value
 - CI enforces the threshold via `--cov-fail-under=95`
 
 ### Running Coverage
@@ -295,6 +310,7 @@ The CI pipeline tests the following matrix:
 pytest test/ -v \
   --ignore=test/test_integration.py \
   --ignore=test/test_suite.py \
+  --ignore=test/test_aio_integration.py \
   --cov=sqlalchemy_cubrid \
   --cov-report=term-missing \
   --cov-fail-under=95
@@ -379,13 +395,13 @@ pre-commit run --all-files
 | Workflow | File | Trigger |
 |---|---|---|
 | CI | `.github/workflows/ci.yml` | Push to main, PRs |
-| Publish | `.github/workflows/python-publish.yml` | GitHub Release |
+| Publish | `.github/workflows/publish-pypi.yml` | GitHub Release |
 
 ### CI Pipeline Steps
 
 1. **Lint** — Ruff check + format verification
-2. **Offline Tests** — Python 3.10, 3.11, 3.12, 3.13 × offline test suite
-3. **Integration Tests** — Python {3.10, 3.12} × CUBRID {10.2, 11.0, 11.2, 11.4}
+2. **Offline Tests** — Python 3.10, 3.11, 3.12, 3.13, 3.14 × offline test suite
+3. **Integration Tests** — Python {3.10, 3.12} × CUBRID {10.2, 11.0, 11.2, 11.4}, plus async integration coverage
 4. **Coverage** — Enforces ≥ 95% threshold
 
 ### Publish Pipeline
