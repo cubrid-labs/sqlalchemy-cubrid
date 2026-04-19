@@ -95,10 +95,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0] - 2026-04-11
 
-### Stability Guarantee
+### Compatibility Policy
 
-This release marks the first stable version of sqlalchemy-cubrid. The public API is frozen:
-breaking changes will only occur in major version bumps (2.0+).
+This release establishes the 1.x compatibility contract: the public API follows semantic versioning,
+and breaking changes will only occur in major version bumps (2.0+).
 
 ### Supported Environments
 

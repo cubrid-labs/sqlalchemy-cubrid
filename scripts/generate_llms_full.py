@@ -1,4 +1,5 @@
 """Generate docs/llms-full.txt by concatenating documentation Markdown files."""
+
 from __future__ import annotations
 
 import pathlib

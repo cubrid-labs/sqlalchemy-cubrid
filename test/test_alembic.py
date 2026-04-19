@@ -219,6 +219,41 @@ class TestCubridImpl:
         assert "alembic" in optional_deps
         assert any("alembic" in dep for dep in optional_deps["alembic"])
 
+    def test_alter_column_type_raises(self):
+        from sqlalchemy_cubrid.alembic_impl import CubridImpl
+
+        impl = object.__new__(CubridImpl)
+
+        with pytest.raises(NotImplementedError, match="ALTER COLUMN TYPE"):
+            impl.alter_column("users", "age", type_=sa.BigInteger())
+
+    def test_alter_column_rename_raises(self):
+        from sqlalchemy_cubrid.alembic_impl import CubridImpl
+
+        impl = object.__new__(CubridImpl)
+
+        with pytest.raises(NotImplementedError, match="RENAME COLUMN"):
+            impl.alter_column("users", "old_name", name="new_name")
+
+    def test_alter_column_nullable_delegates(self):
+        from alembic.ddl.impl import DefaultImpl
+
+        from sqlalchemy_cubrid.alembic_impl import CubridImpl
+
+        impl = object.__new__(CubridImpl)
+
+        with mock.patch.object(DefaultImpl, "alter_column", return_value=None) as mocked:
+            impl.alter_column("users", "email", nullable=False)
+
+        mocked.assert_called_once_with(
+            "users",
+            "email",
+            nullable=False,
+            server_default=False,
+            name=None,
+            type_=None,
+        )
+
 
 class TestAlembicImportError:
     """Test that a clear error is raised when alembic is not installed."""

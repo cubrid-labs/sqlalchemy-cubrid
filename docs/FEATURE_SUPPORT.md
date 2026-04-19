@@ -78,6 +78,7 @@ High-level overview by feature category.
 - **MERGE**: CUBRID supports the full SQL MERGE statement. Use `sqlalchemy_cubrid.dml.merge(target)` with `.using()`, `.on()`, `.when_matched_then_update()`, and `.when_not_matched_then_insert()`. See [CUBRID-Specific DML Constructs](#cubrid-specific-dml-constructs).
 - **FOR UPDATE**: CUBRID supports `SELECT … FOR UPDATE [OF col1, col2]`. NOWAIT and SKIP LOCKED are not supported.
 - **UPDATE with LIMIT**: CUBRID and MySQL both support `UPDATE … LIMIT n`. PostgreSQL and SQLite do not.
+- **Multi-table UPDATE**: SQLAlchemy's multi-table UPDATE pattern compiles to `UPDATE t1, t2 SET ... WHERE ...`, which matches the MySQL-style syntax accepted by CUBRID. The dialect intentionally keeps `update_from_clause()` disabled because no extra `FROM` clause is required.
 - **TRUNCATE**: CUBRID supports `TRUNCATE TABLE`. The dialect includes `TRUNCATE` in autocommit detection.
 - **IS DISTINCT FROM**: Not a CUBRID SQL operator. SQLAlchemy may emulate it with `CASE` expressions on dialects that lack native support.
 
@@ -130,6 +131,7 @@ High-level overview by feature category.
 - **NULLS FIRST / NULLS LAST**: CUBRID supports `ORDER BY col ASC NULLS FIRST` and `ORDER BY col DESC NULLS LAST`. The SA base compiler handles these natively.
 - **GROUP_CONCAT**: CUBRID supports `GROUP_CONCAT([DISTINCT] expr [ORDER BY …] [SEPARATOR '…'])`. Use `sa.func.group_concat(column)`.
 - **LIMIT / OFFSET**: CUBRID uses MySQL-style `LIMIT [offset,] count` syntax. When only an offset is given, the dialect emits `LIMIT offset, 1073741823` (max int) as a workaround.
+- **Join variants**: INNER JOIN and LEFT OUTER JOIN compile normally. FULL OUTER JOIN and `LATERAL` are rejected during compilation because CUBRID does not support them.
 - **Lateral joins**: CUBRID does not support `LATERAL` subqueries. The `LATERAL` keyword causes a syntax error.
 - **Full-text search**: CUBRID does not support `MATCH … AGAINST` syntax or full-text indexes.
 - **Query trace**: CUBRID uses `SET TRACE ON` / `SHOW TRACE` instead of standard `EXPLAIN`. The dialect provides `trace_query()` as a utility function — see [CUBRID-Specific DML Constructs](#cubrid-specific-dml-constructs).
@@ -205,7 +207,7 @@ High-level overview by feature category.
 
 ### Notes
 
-- **Check constraints**: CUBRID parses check constraints but ignores them at runtime (officially documented behavior). The `get_check_constraints()` method returns an empty list.
+- **Check constraints**: CUBRID parses CHECK constraint syntax but does not enforce it at runtime. To avoid reflecting misleading metadata, the dialect intentionally returns an empty list from `get_check_constraints()`.
 - **Table comments**: Reflected via `get_table_comment()` querying the `db_class.comment` system catalog column.
 - **Column comments**: Reflected via `get_columns()` querying the `_db_attribute.comment` system catalog column. Returned in the `"comment"` key of each column dict.
 - **has_index**: The CUBRID dialect implements `has_index()` by querying `db_index`. The MySQL SA dialect does not provide a dedicated `has_index()` method.

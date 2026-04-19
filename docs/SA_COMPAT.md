@@ -5,8 +5,14 @@ sqlalchemy-cubrid and outlines the plan for SA 2.2 compatibility.
 
 ## Why `sqlalchemy>=2.0,<2.2`?
 
-The dialect uses five private SQLAlchemy attributes that may change without
-notice in minor releases.  The upper pin at `<2.2` prevents silent breakage.
+sqlalchemy-cubrid depends on five SQLAlchemy compiler internals:
+`_for_update_arg`, `_limit_clause`, `_offset_clause`,
+`coercions._is_literal`, and `element._with_binary_element_type`.
+The latter two can be incrementally replaced with public equivalents,
+but the former three have no stable public alternative as of the current
+SQLAlchemy documentation. Therefore, SQLAlchemy 2.2+ compatibility is
+not guaranteed without separate verification, and a conservative `<2.2`
+upper bound is maintained.
 
 ## Private API Inventory
 

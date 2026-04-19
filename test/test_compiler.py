@@ -10,6 +10,7 @@ from __future__ import annotations
 import pytest
 import sqlalchemy as sa
 from sqlalchemy import Column, Integer, MetaData, String, Table, select
+from sqlalchemy.exc import CompileError
 
 from sqlalchemy_cubrid.dialect import CubridDialect
 
@@ -187,6 +188,34 @@ class TestJoinCompilation:
         sql = _compile(stmt)
         assert "LEFT OUTER JOIN" in sql
         assert "ON" in sql
+
+    def test_full_outer_join_raises(self):
+        stmt = select(users).select_from(
+            users.join(self.orders, users.c.id == self.orders.c.user_id, full=True)
+        )
+        with pytest.raises(CompileError, match="FULL OUTER JOIN"):
+            _compile(stmt)
+
+    def test_lateral_raises(self):
+        subq = (
+            select(self.orders.c.user_id)
+            .where(self.orders.c.user_id == users.c.id)
+            .lateral("order_lateral")
+        )
+        stmt = select(users.c.id).select_from(users.join(subq, sa.true()))
+        with pytest.raises(CompileError, match="LATERAL"):
+            _compile(stmt)
+
+
+class TestMultiTableUpdateCompilation:
+    def test_multi_table_update(self):
+        t1 = sa.table("t1", sa.column("id"), sa.column("val"))
+        t2 = sa.table("t2", sa.column("id"), sa.column("rate"))
+
+        stmt = t1.update().where(t1.c.id == t2.c.id).values(val=t2.c.rate)
+        sql = _compile(stmt)
+
+        assert sql == "UPDATE t1, t2 SET val=t2.rate WHERE t1.id = t2.id"
 
     def test_cast_with_none_type(self):
         """Test cast when typeclause returns None."""

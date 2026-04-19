@@ -200,7 +200,8 @@ CUBRID does not support changing a column's data type:
 ALTER TABLE users MODIFY COLUMN name BIGINT;
 ```
 
-**In Alembic**, `alter_column(type_=...)` will raise an error.
+**In Alembic**, `alter_column(type_=...)` raises `NotImplementedError` with a
+`batch_alter_table()` workaround link.
 
 **Workaround** — use `batch_alter_table` (table recreate):
 
@@ -222,7 +223,8 @@ CUBRID ≤ 11.x does not support renaming columns:
 ALTER TABLE users RENAME COLUMN old_name TO new_name;
 ```
 
-**In Alembic**, `alter_column(new_column_name=...)` will raise an error.
+**In Alembic**, `alter_column(new_column_name=...)` raises
+`NotImplementedError` with a `batch_alter_table()` workaround link.
 
 **Workaround** — use `batch_alter_table`:
 
@@ -239,6 +241,19 @@ As noted above, DDL is auto-committed. Be aware:
 - Keep migrations small (one logical change per migration)
 - Test migrations against a staging database before production
 - Maintain database backups before running migrations
+
+### Known `alter_column()` behavior
+
+The CUBRID Alembic implementation explicitly allows only the `alter_column()`
+operations that map to supported backend behavior:
+
+- `nullable=` changes
+- `server_default=` changes
+- comment/default-related operations that Alembic routes through `DefaultImpl`
+
+The implementation rejects unsupported type changes and column renames early so
+that migrations fail with a clear backend-specific message instead of emitting
+invalid SQL.
 
 ### Summary
 

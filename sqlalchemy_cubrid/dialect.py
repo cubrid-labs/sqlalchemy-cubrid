@@ -88,7 +88,9 @@ _RE_PRECISION_SCALE = re.compile(r"\((\d+)(?:,\s*(\d+))?\)")
 _RE_FOREIGN_KEY = re.compile(
     r"CONSTRAINT\s+\[(?P<name>[^\]]+)\]\s+FOREIGN\s+KEY\s*"
     r"\((?P<cols>[^)]+)\)\s+REFERENCES\s+"
-    r"\[(?P<ref_table>[^\]]+)\]\s*\((?P<ref_cols>[^)]+)\)",
+    r"\[(?P<ref_table>[^\]]+)\]\s*\((?P<ref_cols>[^)]+)\)"
+    r"(?:\s+ON\s+DELETE\s+(?P<ondelete>CASCADE|SET\s+NULL|NO\s+ACTION|RESTRICT))?"
+    r"(?:\s+ON\s+UPDATE\s+(?P<onupdate>CASCADE|SET\s+NULL|NO\s+ACTION|RESTRICT))?",
     re.IGNORECASE,
 )
 # Parses ``CONSTRAINT [name] UNIQUE KEY ([col1], [col2])`` from
@@ -195,6 +197,7 @@ class CubridDialect(default.DefaultDialect):
     supports_native_enum = False
     supports_native_boolean = False  # CUBRID uses SMALLINT for booleans
     supports_native_decimal = True
+    supports_native_lateral = False
 
     # Column options
     supports_sequences = False
@@ -431,10 +434,16 @@ class CubridDialect(default.DefaultDialect):
             referred_columns = [
                 col.strip() for col in _RE_BRACKET_IDENT.findall(fk_match.group("ref_cols"))
             ]
+            options: dict[str, str] = {}
+            if fk_match.group("ondelete"):
+                options["ondelete"] = fk_match.group("ondelete").upper()
+            if fk_match.group("onupdate"):
+                options["onupdate"] = fk_match.group("onupdate").upper()
             foreign_keys.append(
                 {
                     "name": constraint_name,
                     "constrained_columns": constrained_columns,
+                    "options": options,
                     "referred_schema": schema,
                     "referred_table": ref_table,
                     "referred_columns": referred_columns,
@@ -585,7 +594,9 @@ class CubridDialect(default.DefaultDialect):
         **kw: Any,
     ) -> list[ReflectedCheckConstraint]:
         """Return check constraints for *table_name*."""
-        # CUBRID does not expose check constraint expressions easily
+        # CUBRID parses CHECK constraint syntax but does not enforce them
+        # at runtime (official CUBRID behavior). Reflecting them would be
+        # misleading, so we return an empty list.
         return []
 
     @reflection.cache
@@ -635,15 +646,18 @@ class CubridDialect(default.DefaultDialect):
         schema: str | None = None,
         **kw: Any,
     ) -> bool:
-        """Check if an index exists on *table_name*."""
+        """Check if an index named *index_name* exists on *table_name*."""
         try:
             result = connection.execute(
-                text("SELECT COUNT(*) FROM _db_index WHERE index_name = :name"),
-                {"name": index_name},
+                text(
+                    "SELECT COUNT(*) FROM _db_index "
+                    "WHERE class_of.class_name = :table AND index_name = :name"
+                ),
+                {"table": table_name, "name": index_name},
             )
             return bool(result.scalar())
         except Exception:
-            log.debug("has_index query failed for %s", index_name, exc_info=True)
+            log.debug("has_index query failed for %s.%s", table_name, index_name, exc_info=True)
             return False
 
     def has_sequence(
@@ -720,7 +734,7 @@ class CubridDialect(default.DefaultDialect):
         cursor.execute("SELECT X")
         row = cursor.fetchone()
         if row is None:
-            return "READ COMMITTED"
+            return "REPEATABLE READ SCHEMA, READ COMMITTED INSTANCES"
         val = row[0]
         cursor.close()
         # CUBRID returns numeric level; map to string for SA
@@ -767,10 +781,8 @@ class CubridDialect(default.DefaultDialect):
         cursor.close()
 
     def reset_isolation_level(self, dbapi_conn: DBAPIConnection) -> None:
-        """Revert isolation level to the default."""
-        # CUBRID server default is typically level 4
-        # (REPEATABLE READ SCHEMA, READ COMMITTED INSTANCES)
-        self.set_isolation_level(dbapi_conn, "READ COMMITTED")
+        """Revert isolation level to the CUBRID default (level 4)."""
+        self.set_isolation_level(dbapi_conn, "REPEATABLE READ SCHEMA, READ COMMITTED INSTANCES")
 
     def do_release_savepoint(self, connection: Any, name: str) -> None:
         """CUBRID does not support RELEASE SAVEPOINT; no-op."""

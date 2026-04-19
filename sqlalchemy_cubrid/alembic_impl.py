@@ -158,6 +158,40 @@ class CubridImpl(DefaultImpl):
 
         return set(inspector_values) != set(metadata_values)
 
+    def alter_column(
+        self,
+        table_name: str,
+        column_name: str,
+        nullable: Any = None,
+        server_default: Any = False,
+        name: str | None = None,
+        type_: Any = None,
+        **kw: Any,
+    ) -> None:
+        if type_ is not None:
+            raise NotImplementedError(
+                f"CUBRID does not support ALTER COLUMN TYPE for column "
+                f"'{column_name}' on table '{table_name}'. "
+                f"Use batch_alter_table() as a workaround: "
+                f"https://alembic.sqlalchemy.org/en/latest/batch.html"
+            )
+        if name is not None:
+            raise NotImplementedError(
+                f"CUBRID does not support RENAME COLUMN for column "
+                f"'{column_name}' on table '{table_name}'. "
+                f"Use batch_alter_table() as a workaround: "
+                f"https://alembic.sqlalchemy.org/en/latest/batch.html"
+            )
+        super().alter_column(
+            table_name,
+            column_name,
+            nullable=nullable,
+            server_default=server_default,
+            name=name,
+            type_=type_,
+            **kw,
+        )
+
     @classmethod
     def _is_unbounded_string_match(
         cls, inspector_type: TypeEngine[Any], metadata_type: TypeEngine[Any]

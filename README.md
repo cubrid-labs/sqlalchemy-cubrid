@@ -1,6 +1,6 @@
 # sqlalchemy-cubrid
 
-**SQLAlchemy 2.0–2.1 dialect for the CUBRID database** — Python ORM, schema reflection, Alembic migrations, and full type system support.
+**SQLAlchemy 2.0–2.1 dialect for the CUBRID database** — Python ORM, schema reflection, Alembic migrations, and type mapping for SQLAlchemy and CUBRID-specific types.
 
 [🇰🇷 한국어](docs/README.ko.md) · [🇺🇸 English](README.md) · [🇨🇳 中文](docs/README.zh.md) · [🇮🇳 हिन्दी](docs/README.hi.md) · [🇩🇪 Deutsch](docs/README.de.md) · [🇷🇺 Русский](docs/README.ru.md)
 
@@ -15,6 +15,8 @@
 <!-- BADGES:END -->
 
 ---
+
+> **Status: Beta.** The core public API follows semantic versioning; minor releases may add features and bug fixes while the project remains under active development.
 
 ## Why sqlalchemy-cubrid?
 
@@ -131,14 +133,14 @@ async with AsyncSession(engine) as session:
 
 ## Features
 
-- Complete type system -- numeric, string, date/time, bit, LOB, collection, and JSON types
+- Type mapping for SQLAlchemy standard and CUBRID-specific types — numeric, string, date/time, bit, LOB, collection, and JSON types
 - SQL compilation -- SELECT, JOIN, CAST, LIMIT/OFFSET, subqueries, CTEs, window functions
 - DML extensions -- `ON DUPLICATE KEY UPDATE`, `MERGE`, `REPLACE INTO`, `FOR UPDATE`, `TRUNCATE`
 - DDL support -- `COMMENT`, `IF NOT EXISTS` / `IF EXISTS`, `AUTO_INCREMENT`
 - Schema reflection -- tables, views, columns, PKs, FKs, indexes, unique constraints, comments
 - Alembic migrations via `CubridImpl` (auto-discovered entry point)
 - All 6 CUBRID isolation levels (dual-granularity: class-level + instance-level)
-- Async support (stable, since v1.1.0) — `create_async_engine("cubrid+aiopycubrid://...")` via pycubrid.aio
+- Async support (available since v1.1.0) — `create_async_engine("cubrid+aiopycubrid://...")` via pycubrid.aio
 
 ## Known Limitations
 
@@ -173,6 +175,8 @@ async with AsyncSession(engine) as session:
 | CUBRID | 10.2, 11.0, 11.2, 11.4 |
 | SQLAlchemy | 2.0–2.1 |
 | Alembic | >=1.7 |
+| pycubrid (sync) | >=1.0 |
+| pycubrid (async) | >=1.1.0 |
 
 ## FAQ
 

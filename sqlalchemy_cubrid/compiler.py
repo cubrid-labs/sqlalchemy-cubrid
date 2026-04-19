@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from sqlalchemy.exc import CompileError
 from sqlalchemy.sql import compiler, elements
 from sqlalchemy.sql import sqltypes
 
@@ -56,6 +57,8 @@ class CubridCompiler(compiler.SQLCompiler):
         **kwargs: Any,
     ) -> str:
         # https://www.cubrid.org/manual/en/11.0/sql/query/select.html#join-query
+        if getattr(join, "full", False):
+            raise CompileError("CUBRID does not support FULL OUTER JOIN")
         return "".join(
             (
                 self.process(join.left, asfrom=True, **kwargs),
@@ -65,6 +68,9 @@ class CubridCompiler(compiler.SQLCompiler):
                 self.process(join.onclause, **kwargs),
             )
         )
+
+    def visit_lateral(self, lateral_: Any, **kw: Any) -> str:
+        raise CompileError("CUBRID does not support LATERAL")
 
     def for_update_clause(self, select: Any, **kw: Any) -> str:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Render FOR UPDATE clause.

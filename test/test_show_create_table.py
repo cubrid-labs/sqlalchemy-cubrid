@@ -44,10 +44,16 @@ def parse_foreign_keys(ddl: str) -> list[dict[str, Any]]:
         referred_columns = [
             col.strip() for col in _RE_BRACKET_IDENT.findall(fk_match.group("ref_cols"))
         ]
+        options: dict[str, str] = {}
+        if fk_match.group("ondelete"):
+            options["ondelete"] = fk_match.group("ondelete").upper()
+        if fk_match.group("onupdate"):
+            options["onupdate"] = fk_match.group("onupdate").upper()
         foreign_keys.append(
             {
                 "name": constraint_name,
                 "constrained_columns": constrained_columns,
+                "options": options,
                 "referred_table": ref_table,
                 "referred_columns": referred_columns,
             }
@@ -86,6 +92,7 @@ FK_FIXTURES: list[tuple[str, str, list[dict[str, Any]]]] = [
             {
                 "name": "fk_orders_user",
                 "constrained_columns": ["user_id"],
+                "options": {},
                 "referred_table": "users",
                 "referred_columns": ["id"],
             }
@@ -105,6 +112,7 @@ FK_FIXTURES: list[tuple[str, str, list[dict[str, Any]]]] = [
             {
                 "name": "fk_items_order",
                 "constrained_columns": ["order_id", "tenant_id"],
+                "options": {},
                 "referred_table": "orders",
                 "referred_columns": ["id", "tenant_id"],
             }
@@ -123,6 +131,7 @@ FK_FIXTURES: list[tuple[str, str, list[dict[str, Any]]]] = [
             {
                 "name": "fk_order_user",
                 "constrained_columns": ["user_id"],
+                "options": {},
                 "referred_table": "users",  # owner prefix stripped
                 "referred_columns": ["id"],
             }
@@ -146,12 +155,14 @@ FK_FIXTURES: list[tuple[str, str, list[dict[str, Any]]]] = [
             {
                 "name": "fk_ship_from",
                 "constrained_columns": ["from_addr_id"],
+                "options": {},
                 "referred_table": "addresses",
                 "referred_columns": ["id"],
             },
             {
                 "name": "fk_ship_to",
                 "constrained_columns": ["to_addr_id"],
+                "options": {},
                 "referred_table": "addresses",
                 "referred_columns": ["id"],
             },
@@ -171,6 +182,7 @@ FK_FIXTURES: list[tuple[str, str, list[dict[str, Any]]]] = [
             {
                 "name": "fk_comment_post",
                 "constrained_columns": ["post_id"],
+                "options": {"ondelete": "CASCADE", "onupdate": "RESTRICT"},
                 "referred_table": "posts",
                 "referred_columns": ["id"],
             }
@@ -189,6 +201,7 @@ FK_FIXTURES: list[tuple[str, str, list[dict[str, Any]]]] = [
             {
                 "name": "fk_task_assignee",
                 "constrained_columns": ["assignee_id"],
+                "options": {"ondelete": "SET NULL", "onupdate": "NO ACTION"},
                 "referred_table": "employees",
                 "referred_columns": ["id"],
             }
@@ -213,12 +226,14 @@ FK_FIXTURES: list[tuple[str, str, list[dict[str, Any]]]] = [
             {
                 "name": "fk_enroll_student",
                 "constrained_columns": ["student_id"],
+                "options": {},
                 "referred_table": "students",
                 "referred_columns": ["id"],
             },
             {
                 "name": "fk_enroll_course",
                 "constrained_columns": ["course_id"],
+                "options": {},
                 "referred_table": "courses",
                 "referred_columns": ["id"],
             },
@@ -243,6 +258,7 @@ FK_FIXTURES: list[tuple[str, str, list[dict[str, Any]]]] = [
             {
                 "name": "fk_ws_test",
                 "constrained_columns": ["user_id"],
+                "options": {},
                 "referred_table": "users",
                 "referred_columns": ["id"],
             }
@@ -261,6 +277,7 @@ FK_FIXTURES: list[tuple[str, str, list[dict[str, Any]]]] = [
             {
                 "name": "fk_lower",
                 "constrained_columns": ["ref_id"],
+                "options": {},
                 "referred_table": "other",
                 "referred_columns": ["id"],
             }
@@ -279,8 +296,67 @@ FK_FIXTURES: list[tuple[str, str, list[dict[str, Any]]]] = [
             {
                 "name": "fk_abc",
                 "constrained_columns": ["a", "b", "c"],
+                "options": {},
                 "referred_table": "master",
                 "referred_columns": ["x", "y", "z"],
+            }
+        ],
+    ),
+    (
+        "fk_multi_column_with_actions",
+        (
+            "CREATE TABLE [order_items] (\n"
+            "  [order_id] INTEGER NOT NULL,\n"
+            "  [tenant_id] INTEGER NOT NULL,\n"
+            "  CONSTRAINT [fk_items_order_action] FOREIGN KEY ([order_id], [tenant_id]) "
+            "REFERENCES [orders] ([id], [tenant_id]) ON DELETE CASCADE ON UPDATE SET NULL\n"
+            ")"
+        ),
+        [
+            {
+                "name": "fk_items_order_action",
+                "constrained_columns": ["order_id", "tenant_id"],
+                "options": {"ondelete": "CASCADE", "onupdate": "SET NULL"},
+                "referred_table": "orders",
+                "referred_columns": ["id", "tenant_id"],
+            }
+        ],
+    ),
+    (
+        "fk_owner_prefix_with_multiple_dots",
+        (
+            "CREATE TABLE [orders] (\n"
+            "  [item_id] INTEGER,\n"
+            "  CONSTRAINT [fk_order_item] FOREIGN KEY ([item_id]) "
+            "REFERENCES [dba.schema.items] ([id]) ON DELETE RESTRICT\n"
+            ")"
+        ),
+        [
+            {
+                "name": "fk_order_item",
+                "constrained_columns": ["item_id"],
+                "options": {"ondelete": "RESTRICT"},
+                "referred_table": "schema.items",
+                "referred_columns": ["id"],
+            }
+        ],
+    ),
+    (
+        "fk_extra_whitespace_with_actions",
+        (
+            "CREATE TABLE [audit] (\n"
+            "  [actor_id] INTEGER,\n"
+            "  CONSTRAINT  [fk_audit_actor]  FOREIGN KEY  ([actor_id])\n"
+            "    REFERENCES   [users]  ([id])   ON DELETE   NO ACTION   ON UPDATE   CASCADE\n"
+            ")"
+        ),
+        [
+            {
+                "name": "fk_audit_actor",
+                "constrained_columns": ["actor_id"],
+                "options": {"ondelete": "NO ACTION", "onupdate": "CASCADE"},
+                "referred_table": "users",
+                "referred_columns": ["id"],
             }
         ],
     ),
@@ -379,6 +455,33 @@ UNIQUE_FIXTURES: list[tuple[str, str, list[dict[str, Any]]]] = [
             ")"
         ),
         [{"name": "uq_date", "column_names": ["year", "month", "day"]}],
+    ),
+    (
+        "unique_with_descending_key_order",
+        (
+            "CREATE TABLE [events] (\n"
+            "  [created_at] DATETIME,\n"
+            "  [tenant_id] INTEGER,\n"
+            "  CONSTRAINT [uq_events_created] UNIQUE KEY ([created_at] DESC, [tenant_id])\n"
+            ")"
+        ),
+        [{"name": "uq_events_created", "column_names": ["created_at", "tenant_id"]}],
+    ),
+    (
+        "unique_with_multiline_whitespace",
+        (
+            "CREATE TABLE [test] (\n"
+            "  [a] INTEGER,\n"
+            "  [b] INTEGER,\n"
+            "  CONSTRAINT\n"
+            "    [uq_multiline]\n"
+            "    UNIQUE\n"
+            "    KEY\n"
+            "    ([a],\n"
+            "     [b])\n"
+            ")"
+        ),
+        [{"name": "uq_multiline", "column_names": ["a", "b"]}],
     ),
 ]
 

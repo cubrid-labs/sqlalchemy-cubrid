@@ -161,6 +161,16 @@ class TestIsolationLevelMethods:
         level = dialect.get_isolation_level(dbapi_conn)
         assert level == "99"
 
+    def test_get_isolation_level_none_row_returns_default(self):
+        dialect = CubridDialect()
+        cursor = MagicMock()
+        cursor.fetchone.return_value = None
+        dbapi_conn = MagicMock()
+        dbapi_conn.cursor.return_value = cursor
+
+        level = dialect.get_isolation_level(dbapi_conn)
+        assert level == "REPEATABLE READ SCHEMA, READ COMMITTED INSTANCES"
+
     def test_get_isolation_level_values(self):
         dialect = CubridDialect()
         levels = dialect.get_isolation_level_values()
@@ -224,7 +234,6 @@ class TestIsolationLevelMethods:
         dbapi_conn.cursor = MagicMock(return_value=cursor)
 
         dialect.reset_isolation_level(dbapi_conn)
-        # Should set to level 4 (READ COMMITTED)
         cursor.execute.assert_any_call("SET TRANSACTION ISOLATION LEVEL 4")
 
 
@@ -252,12 +261,25 @@ class TestExistenceChecks:
 
         connection.execute.return_value.scalar.return_value = 2
         assert dialect.has_index(connection, "users", "ix_users_name") is True
+        call_args = connection.execute.call_args
+        bound_params = call_args[0][1]
+        assert bound_params == {"table": "users", "name": "ix_users_name"}
 
         connection.execute.return_value.scalar.return_value = 0
         assert dialect.has_index(connection, "users", "ix_users_name") is False
 
         connection.execute.side_effect = RuntimeError("metadata unavailable")
         assert dialect.has_index(connection, "users", "ix_users_name") is False
+
+    def test_has_index_filters_by_table(self):
+        dialect = CubridDialect()
+        connection = MagicMock()
+
+        connection.execute.return_value.scalar.return_value = 0
+        assert dialect.has_index(connection, "orders", "ix_name") is False
+        call_args = connection.execute.call_args
+        bound_params = call_args[0][1]
+        assert bound_params["table"] == "orders"
 
     def test_has_sequence_always_false(self):
         dialect = CubridDialect()
