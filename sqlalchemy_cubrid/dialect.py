@@ -416,16 +416,14 @@ class CubridDialect(default.DefaultDialect):
         for fk_match in _RE_FOREIGN_KEY.finditer(ddl):
             constraint_name = fk_match.group("name")
             constrained_columns = [
-                col.strip()
-                for col in _RE_BRACKET_IDENT.findall(fk_match.group("cols"))
+                col.strip() for col in _RE_BRACKET_IDENT.findall(fk_match.group("cols"))
             ]
             ref_table_raw = fk_match.group("ref_table")
             # CUBRID prefixes referenced tables with the owner (e.g.
             # ``dba.budget_categories``) — strip it for SQLAlchemy.
             ref_table = ref_table_raw.split(".", 1)[-1]
             referred_columns = [
-                col.strip()
-                for col in _RE_BRACKET_IDENT.findall(fk_match.group("ref_cols"))
+                col.strip() for col in _RE_BRACKET_IDENT.findall(fk_match.group("ref_cols"))
             ]
             foreign_keys.append(
                 {
@@ -562,12 +560,9 @@ class CubridDialect(default.DefaultDialect):
         for uc_match in _RE_UNIQUE_KEY.finditer(ddl):
             constraint_name = uc_match.group("name")
             column_names = [
-                col.strip()
-                for col in _RE_BRACKET_IDENT.findall(uc_match.group("cols"))
+                col.strip() for col in _RE_BRACKET_IDENT.findall(uc_match.group("cols"))
             ]
-            unique_constraints.append(
-                {"name": constraint_name, "column_names": column_names}
-            )
+            unique_constraints.append({"name": constraint_name, "column_names": column_names})
         return unique_constraints
 
     @reflection.cache

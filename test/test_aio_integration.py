@@ -27,8 +27,7 @@ import os
 import pytest
 import pytest_asyncio
 from sqlalchemy import Column, Integer, MetaData, String, Table, text
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -129,13 +128,9 @@ class TestAsyncCRUD:
     async def test_update(self, engine, metadata):
         users = metadata.tables["aio_test_users"]
         async with engine.begin() as conn:
-            await conn.execute(
-                users.update().where(users.c.name == "alice").values(value=100)
-            )
+            await conn.execute(users.update().where(users.c.name == "alice").values(value=100))
         async with engine.connect() as conn:
-            result = await conn.execute(
-                users.select().where(users.c.name == "alice")
-            )
+            result = await conn.execute(users.select().where(users.c.name == "alice"))
             row = result.fetchone()
             assert row is not None and row.value == 100
 
@@ -144,26 +139,20 @@ class TestAsyncCRUD:
         async with engine.begin() as conn:
             await conn.execute(users.delete().where(users.c.name == "bob"))
         async with engine.connect() as conn:
-            result = await conn.execute(
-                users.select().where(users.c.name == "bob")
-            )
+            result = await conn.execute(users.select().where(users.c.name == "bob"))
             assert result.fetchone() is None
 
     async def test_transaction_rollback(self, engine, metadata):
         users = metadata.tables["aio_test_users"]
         try:
             async with engine.begin() as conn:
-                await conn.execute(
-                    users.insert().values(name="will_rollback", value=999)
-                )
+                await conn.execute(users.insert().values(name="will_rollback", value=999))
                 raise RuntimeError("force rollback")
         except RuntimeError:
             pass
 
         async with engine.connect() as conn:
-            result = await conn.execute(
-                users.select().where(users.c.name == "will_rollback")
-            )
+            result = await conn.execute(users.select().where(users.c.name == "will_rollback"))
             assert result.fetchone() is None
 
     async def test_concurrent_pool(self, engine):
@@ -243,9 +232,7 @@ class TestAsyncJSON:
 
     async def test_null_json(self, engine):
         async with engine.begin() as conn:
-            await conn.execute(
-                text("INSERT INTO aio_test_json (payload) VALUES (NULL)")
-            )
+            await conn.execute(text("INSERT INTO aio_test_json (payload) VALUES (NULL)"))
         assert await self._last_json(engine) is None
 
     async def test_empty_object(self, engine):
@@ -258,9 +245,7 @@ class TestAsyncJSON:
 
     async def test_json_extract(self, engine):
         async with engine.connect() as conn:
-            r = await conn.execute(
-                text("SELECT JSON_EXTRACT('{\"a\": 1}', '$.a')")
-            )
+            r = await conn.execute(text("SELECT JSON_EXTRACT('{\"a\": 1}', '$.a')"))
             assert r.scalar() is not None
 
     async def test_orm_json_type(self, engine):
