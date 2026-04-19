@@ -198,9 +198,17 @@ class CubridDialect(default.DefaultDialect):
 
     postfetch_lastrowid = True
 
-    def __init__(self, isolation_level: str | None = None, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        isolation_level: str | None = None,
+        json_serializer: Any = None,
+        json_deserializer: Any = None,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(**kwargs)
         self.isolation_level = isolation_level
+        self._json_serializer = json_serializer
+        self._json_deserializer = json_deserializer
 
     @classmethod
     def import_dbapi(cls) -> DBAPIModule:
