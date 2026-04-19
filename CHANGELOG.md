@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-04-19
+
+### Fixed
+
+- **Async dialect**: Add missing `get_pool_class()` override returning
+  `AsyncAdaptedQueuePool` — `create_async_engine()` now works correctly (#116)
+- **JSON serialization**: Initialize `_json_serializer` / `_json_deserializer`
+  attributes in `CubridDialect.__init__()` — ORM `JSON` column inserts no
+  longer raise `AttributeError` (#117)
+
+### Added
+
+- 16 async E2E integration tests (`test/test_aio_integration.py`)
+- Async usage sample (`samples/async_basic.py`)
+
 ## [1.2.0] - 2026-04-18
 
 ### Added
