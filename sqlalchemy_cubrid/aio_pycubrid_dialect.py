@@ -14,6 +14,7 @@ from sqlalchemy.connectors.asyncio import (
     AsyncAdapt_dbapi_cursor,
     AsyncAdapt_dbapi_module,
 )
+from sqlalchemy import pool as pool_module
 from sqlalchemy.engine.interfaces import ConnectArgsType, DBAPIModule
 from sqlalchemy.engine.url import URL
 from sqlalchemy.util.concurrency import await_only
@@ -78,6 +79,10 @@ class PyCubridAsyncDialect(PyCubridDialect):
     is_async = True
     supports_statement_cache = True
     execution_ctx_cls = PyCubridExecutionContext
+
+    @classmethod
+    def get_pool_class(cls, url: URL) -> type[pool_module.Pool]:
+        return pool_module.AsyncAdaptedQueuePool
 
     @classmethod
     def import_dbapi(cls) -> DBAPIModule:
