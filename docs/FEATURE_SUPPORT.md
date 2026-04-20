@@ -68,11 +68,11 @@ High-level overview by feature category.
 | UPDATE with LIMIT | ✅ | ✅ | ❌ | ❌ |
 | TRUNCATE TABLE | ✅ | ✅ | ✅ | ❌ |
 | IS DISTINCT FROM | ❌ | ❌ | ✅ | ❌ |
-| Postfetch LASTROWID | ❌ | ✅ | ❌ | ✅ |
+| Postfetch LASTROWID | ✅ | ✅ | ❌ | ✅ |
 
 ### Notes
 
-- **RETURNING**: CUBRID has no `RETURNING` clause. Auto-generated keys cannot be fetched in the same round-trip as the INSERT; `postfetch_lastrowid` is also unavailable.
+- **RETURNING**: CUBRID has no `RETURNING` clause. Auto-generated keys cannot be fetched in the same round-trip as the INSERT, so the dialect relies on `postfetch_lastrowid = True` instead (`get_last_insert_id()` / SQL fallback for the C driver; `cursor.lastrowid` for pycubrid).
 - **DEFAULT VALUES**: CUBRID supports `INSERT INTO t DEFAULT VALUES`. The dialect sets `supports_default_values = True`.
 - **ON DUPLICATE KEY UPDATE**: CUBRID supports `INSERT … ON DUPLICATE KEY UPDATE` with `VALUES()` references (identical to MySQL pre-8.0 syntax). Use `sqlalchemy_cubrid.insert(table).on_duplicate_key_update(col=value)`. See [CUBRID-Specific DML Constructs](#cubrid-specific-dml-constructs) for usage examples.
 - **MERGE**: CUBRID supports the full SQL MERGE statement. Use `sqlalchemy_cubrid.dml.merge(target)` with `.using()`, `.on()`, `.when_matched_then_update()`, and `.when_not_matched_then_insert()`. See [CUBRID-Specific DML Constructs](#cubrid-specific-dml-constructs).
@@ -210,8 +210,8 @@ High-level overview by feature category.
 - **Check constraints**: CUBRID parses CHECK constraint syntax but does not enforce it at runtime. To avoid reflecting misleading metadata, the dialect intentionally returns an empty list from `get_check_constraints()`.
 - **Table comments**: Reflected via `get_table_comment()` querying the `db_class.comment` system catalog column.
 - **Column comments**: Reflected via `get_columns()` querying the `_db_attribute.comment` system catalog column. Returned in the `"comment"` key of each column dict.
-- **has_index**: The CUBRID dialect implements `has_index()` by querying `db_index`. The MySQL SA dialect does not provide a dedicated `has_index()` method.
-- **Reflection source**: CUBRID reflection queries the system catalog tables (`db_class`, `db_attribute`, `db_index`, `db_constraint`, `_db_index`, `_db_attribute`) rather than `INFORMATION_SCHEMA`.
+- **has_index**: The CUBRID dialect implements `has_index()` by querying `_db_index`. The MySQL SA dialect does not provide a dedicated `has_index()` method.
+- **Reflection source**: Reflection is split across multiple sources: `SHOW COLUMNS IN` + `_db_attribute` for columns/comments, `SHOW COLUMNS IN` + optional `db_constraint` lookup for PK names, `SHOW CREATE TABLE` parsing for foreign keys and unique constraints, `SHOW INDEXES IN` + `_db_index` for indexes, `SHOW CREATE VIEW` for view definitions, and `db_class` for table/view names and table comments.
 
 ---
 
@@ -465,7 +465,6 @@ Features not currently supported that may be added in future releases, depending
 | Feature | Status | Reason |
 |---------|--------|--------|
 | RETURNING clause | ❌ | CUBRID does not support `INSERT/UPDATE/DELETE … RETURNING` |
-| Postfetch LASTROWID | ❌ | CUBRID Python driver limitation |
 | JSON type | ✅ | Native JSON support (CUBRID 10.2+) with path expressions via `JSON_EXTRACT` |
 | Temporary tables | ❌ | CUBRID does not support `CREATE TEMPORARY TABLE` |
 | Multiple schemas | ❌ | CUBRID operates in a single-schema model |
@@ -479,4 +478,4 @@ Features not currently supported that may be added in future releases, depending
 
 ---
 
-*Last updated: March 2026 · sqlalchemy-cubrid v0.7.1 · SQLAlchemy 2.0–2.1*
+*Last updated: April 2026 · sqlalchemy-cubrid v1.4.0 Beta · SQLAlchemy 2.0–2.1*

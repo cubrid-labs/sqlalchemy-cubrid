@@ -19,13 +19,12 @@ Compatibility and feature support for sqlalchemy-cubrid releases.
 
 | Private API | Location | Usage |
 |---|---|---|
-| `select._limit_clause` | `compiler.py:81` | LIMIT clause compilation |
-| `select._offset_clause` | `compiler.py:82` | OFFSET clause compilation |
-| `select._for_update_arg` | `compiler.py:71` | FOR UPDATE clause |
-| `coercions._is_literal` | `compiler.py:144` | Literal value detection |
-| `BindParameter._with_binary_element_type` | `compiler.py:150-151` | Binary parameter handling |
+| `select._limit_clause` | `compiler.py:104` | LIMIT clause compilation |
+| `select._offset_clause` | `compiler.py:105` | OFFSET clause compilation |
+| `select._for_update_arg` | `compiler.py:93` | FOR UPDATE clause |
 
-These will be migrated to public APIs when SA 2.2 is released.
+Literal detection and typed-bind recreation now go through local `_compat.py`
+helpers, so the direct private API surface is down to these three attributes.
 
 ### Python
 
@@ -64,11 +63,11 @@ These will be migrated to public APIs when SA 2.2 is released.
 
 | Feature | Status | Notes |
 |---|---|---|
-| `create_engine()` | ✅ | Both `cubrid://` and `cubrid+pycubrid://` schemes |
-| Async engine | ✅ | `create_async_engine("cubrid+aiopycubrid://...")`, supported since v1.1.0 |
+| `create_engine()` | ✅ | `cubrid://`, `cubrid+cubrid://`, and `cubrid+pycubrid://` schemes |
+| Async engine | ✅ | `create_async_engine("cubrid+aiopycubrid://...")` |
 | SQL compilation | ✅ | SELECT, INSERT, UPDATE, DELETE, JOIN, subqueries |
 | DDL compilation | ✅ | CREATE TABLE, ALTER, DROP, AUTO_INCREMENT, COMMENT |
-| Type system | ✅ | All CUBRID types mapped (see below) |
+| Type system | ✅ | All shipped CUBRID types compile; reflection coverage is listed separately below |
 | Schema reflection | ✅ | Tables, columns, PKs, FKs, indexes, unique constraints, comments |
 | Transaction management | ✅ | commit, rollback, savepoint (no RELEASE SAVEPOINT) |
 | Connection pooling | ✅ | SA pool with `pool_pre_ping`, disconnect detection |
@@ -122,37 +121,42 @@ These will be migrated to public APIs when SA 2.2 is released.
 | RELEASE SAVEPOINT | ❌ | No-op (CUBRID doesn't support it) |
 | Lateral joins | ❌ | CUBRID lacks LATERAL subquery support |
 | Full-text search | ❌ | No MATCH … AGAINST syntax |
-| Async DBAPI | ✅ | Via pycubrid.aio async driver (`cubrid+aiopycubrid://`), requires pycubrid ≥ 1.1.0 |
+| Async DBAPI | ✅ | Via pycubrid.aio async driver (`cubrid+aiopycubrid://`), requires pycubrid >= 1.2.0,<2.0 |
 
 ---
 
 ## Type Mapping
 
-| CUBRID Type | SQLAlchemy Type | Python Type |
-|---|---|---|
-| INTEGER | `sa.Integer` | `int` |
-| BIGINT | `sa.BigInteger` | `int` |
-| SMALLINT | `sa.SmallInteger` | `int` |
-| FLOAT | `sa.Float` | `float` |
-| DOUBLE | `sa.Float` | `float` |
-| NUMERIC / DECIMAL | `sa.Numeric` | `decimal.Decimal` |
-| MONETARY | `MONETARY` | `float` |
-| CHAR | `sa.CHAR` | `str` |
-| VARCHAR | `sa.String` | `str` |
-| NCHAR | `NCHAR` | `str` |
-| NVARCHAR | `NVARCHAR` | `str` |
-| STRING | `STRING` | `str` |
-| DATE | `sa.Date` | `datetime.date` |
-| TIME | `sa.Time` | `datetime.time` |
-| DATETIME | `sa.DateTime` | `datetime.datetime` |
-| TIMESTAMP | `sa.TIMESTAMP` | `datetime.datetime` |
-| BIT | `BIT` | `bytes` |
-| BLOB | `sa.LargeBinary` | `bytes` |
-| CLOB | `CLOB` | `str` |
-| SET | `SET` | Collection |
-| MULTISET | `MULTISET` | Collection |
-| SEQUENCE | `SEQUENCE` | Collection |
-| OBJECT | `OBJECT` | OID reference |
+Declared/compiled types and reflected types are not identical. `REAL`, `MONETARY`,
+and `OBJECT` compile correctly and can be declared in models, but they are not
+present in `dialect.ischema_names`, so reflection will not auto-map them back.
+
+| CUBRID Type | SQLAlchemy Type | Python Type | Reflection |
+|---|---|---|---|
+| INTEGER | `sa.Integer` | `int` | ✅ |
+| BIGINT | `sa.BigInteger` | `int` | ✅ |
+| SMALLINT | `sa.SmallInteger` | `int` | ✅ |
+| FLOAT | `sa.Float` | `float` | ✅ |
+| REAL | `REAL` | `float` | ❌ Declared/compiled only |
+| DOUBLE | `sa.Float` | `float` | ✅ |
+| NUMERIC / DECIMAL | `sa.Numeric` | `decimal.Decimal` | ✅ |
+| MONETARY | `MONETARY` | `float` | ❌ Declared/compiled only |
+| CHAR | `sa.CHAR` | `str` | ✅ |
+| VARCHAR | `sa.String` | `str` | ✅ |
+| NCHAR | `NCHAR` | `str` | ✅ |
+| NVARCHAR | `NVARCHAR` | `str` | ✅ |
+| STRING | `STRING` | `str` | ✅ |
+| DATE | `sa.Date` | `datetime.date` | ✅ |
+| TIME | `sa.Time` | `datetime.time` | ✅ |
+| DATETIME | `sa.DateTime` | `datetime.datetime` | ✅ |
+| TIMESTAMP | `sa.TIMESTAMP` | `datetime.datetime` | ✅ |
+| BIT | `BIT` | `bytes` | ✅ |
+| BLOB | `sa.LargeBinary` | `bytes` | ✅ |
+| CLOB | `CLOB` | `str` | ✅ |
+| SET | `SET` | Collection | ✅ |
+| MULTISET | `MULTISET` | Collection | ✅ |
+| SEQUENCE | `SEQUENCE` | Collection | ✅ |
+| OBJECT | `OBJECT` | OID reference | ❌ Declared/compiled only |
 
 ---
 
@@ -171,7 +175,7 @@ The 5 × 4 full integration matrix is run by `.github/workflows/integration-full
 |---|---|
 | Offline tests | 619 |
 | Integration tests | 35 sync + 16 async |
-| Line coverage | See CI / Codecov for latest exact value |
+| Line coverage | ~98.26% offline |
 | Coverage threshold | 95% (CI-enforced) |
 
 ---

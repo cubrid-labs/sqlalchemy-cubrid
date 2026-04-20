@@ -9,11 +9,15 @@ Get a working SQLAlchemy + CUBRID application running in minutes.
 Before you start, make sure the following are available:
 
 - CUBRID server (running and reachable)
-- Python 3.9+
-- `pycubrid` driver installed
+- Python 3.10+
+- One supported driver configuration:
+  - `cubrid://` via CUBRID-Python (C-extension)
+  - `cubrid+pycubrid://` via pycubrid
+  - `cubrid+aiopycubrid://` via pycubrid.aio
 
 ```bash
-pip install pycubrid
+pip install sqlalchemy-cubrid
+# or: pip install "sqlalchemy-cubrid[pycubrid]"
 ```
 
 ---
@@ -28,10 +32,12 @@ pip install sqlalchemy-cubrid
 
 ## Connection URL Format
 
-Use the pycubrid dialect URL format:
+Use one of the supported URL formats:
 
 ```text
+cubrid://user:password@host:port/database
 cubrid+pycubrid://user:password@host:port/database
+cubrid+aiopycubrid://user:password@host:port/database
 ```
 
 Example:
@@ -39,7 +45,7 @@ Example:
 ```python
 from sqlalchemy import create_engine
 
-engine = create_engine("cubrid+pycubrid://dba@localhost:33000/testdb")
+engine = create_engine("cubrid://dba@localhost:33000/testdb")
 ```
 
 ---
@@ -50,8 +56,12 @@ engine = create_engine("cubrid+pycubrid://dba@localhost:33000/testdb")
 flowchart TD
     app[Application Code] --> sa[SQLAlchemy 2.0–2.1]
     sa --> dialect[sqlalchemy-cubrid]
-    dialect --> driver[pycubrid]
-    driver --> db[(CUBRID Server)]
+    dialect --> cext[CUBRIDdb]
+    dialect --> pure[pycubrid]
+    dialect --> aio[pycubrid.aio]
+    cext --> db[(CUBRID Server)]
+    pure --> db
+    aio --> db
 ```
 
 ---

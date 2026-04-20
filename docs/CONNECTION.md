@@ -127,7 +127,7 @@ Use `cubrid://` for the C-extension driver (best performance), or `cubrid+pycubr
 
 ## Async Connection
 
-For async applications, use the `cubrid+aiopycubrid://` URL scheme with `create_async_engine`. Requires `pycubrid>=1.1.0`.
+For async applications, use the `cubrid+aiopycubrid://` URL scheme with `create_async_engine`. Requires `pycubrid>=1.2.0,<2.0`.
 
 ```python
 from sqlalchemy.ext.asyncio import create_async_engine

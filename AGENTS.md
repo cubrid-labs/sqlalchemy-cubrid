@@ -11,7 +11,7 @@ Alembic migration support, and PEP 561 typing.
 - **Language**: Python 3.10+
 - **Framework**: SQLAlchemy 2.0 – 2.1
 - **License**: MIT
-- **Version**: 0.7.1
+- **Version**: 1.4.0 Beta
 
 ## Architecture
 
@@ -61,6 +61,7 @@ graph TD
 cubrid = "sqlalchemy_cubrid.dialect:CubridDialect"
 "cubrid.cubrid" = "sqlalchemy_cubrid.dialect:CubridDialect"
 "cubrid.pycubrid" = "sqlalchemy_cubrid.pycubrid_dialect:PyCubridDialect"
+"cubrid.aiopycubrid" = "sqlalchemy_cubrid.aio_pycubrid_dialect:PyCubridAsyncDialect"
 [project.entry-points."alembic.ddl"]
 cubrid = "sqlalchemy_cubrid.alembic_impl:CubridImpl"
 ```
@@ -169,7 +170,7 @@ test/
 
 ### Test Stats
 
-- **426 offline tests + 29 integration tests**, **99.47% coverage** (1134 statements, 6 unreachable)
+- **619 offline tests + 35 sync integration tests + 16 async integration tests**, **~98.26% offline coverage**
 - Coverage threshold: 95% (CI-enforced)
 - 6 unreachable lines (defensive fallbacks): `compiler.py:72`, `compiler.py:84`, `compiler.py:298-300`, `dml.py:310`
 
@@ -185,7 +186,7 @@ type mapping, and reflection logic without a database. Only `test_integration.py
 
 - **No RETURNING** — `INSERT/UPDATE/DELETE ... RETURNING` not supported
 - **No native BOOLEAN** — mapped to `SMALLINT` (0/1)
-- **JSON support (10.2+)** — full JSON data type with 25+ functions (JSON_OBJECT, JSON_ARRAY, JSON_EXTRACT, JSON_TABLE, etc.); not yet mapped in this dialect
+- **JSON support (10.2+)** — native JSON type is mapped in this dialect, including path/index helpers and reflection support
 - **No ARRAY** — uses `SET`, `MULTISET`, `SEQUENCE` collection types
 - **No Sequences** — uses `AUTO_INCREMENT`
 - **No multi-schema** — single-schema model

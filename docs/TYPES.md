@@ -234,9 +234,9 @@ stmt = select(func.JSON_EXTRACT(events.c.payload, "$.type"))
 
 ---
 
-## Type Reflection (ischema_names)
+## Type Reflection (`ischema_names` only)
 
-When reflecting existing tables, the dialect maps CUBRID type names back to SQLAlchemy types:
+When reflecting existing tables, the dialect maps only the CUBRID type names present in `dialect.ischema_names` back to SQLAlchemy types:
 
 | CUBRID Type Name    | SQLAlchemy Type    |
 |---------------------|--------------------|
@@ -265,6 +265,8 @@ When reflecting existing tables, the dialect maps CUBRID type names back to SQLA
 | `SET`               | `SET`              |
 | `MULTISET`          | `MULTISET`         |
 | `SEQUENCE`          | `SEQUENCE`         |
+
+The following dialect types are **declared/compiled** but **not auto-reflected** because they are not present in `dialect.ischema_names`: `REAL`, `MONETARY`, and `OBJECT`.
 
 ---
 
@@ -366,10 +368,10 @@ The table below is designed for copy/paste into tooling pipelines and architectu
 | `NUMERIC(p,s)` | `sqlalchemy_cubrid.NUMERIC` | `decimal.Decimal` | Exact numeric; precision 1-38. |
 | `DECIMAL(p,s)` | `sqlalchemy_cubrid.DECIMAL` | `decimal.Decimal` | Synonym of `NUMERIC`. |
 | `FLOAT(p)` | `sqlalchemy_cubrid.FLOAT` | `float` | Approximate numeric, default precision 7. |
-| `REAL` | `sqlalchemy_cubrid.REAL` | `float` | Approximate numeric single precision semantics. |
+| `REAL` | `sqlalchemy_cubrid.REAL` | `float` | Approximate numeric single precision semantics. Declared/compiled only; not auto-reflected. |
 | `DOUBLE` | `sqlalchemy_cubrid.DOUBLE` | `float` | Approximate numeric double precision. |
 | `DOUBLE PRECISION` | `sqlalchemy_cubrid.DOUBLE_PRECISION` | `float` | Reflected as dedicated dialect type. |
-| `MONETARY` | `sqlalchemy_cubrid.MONETARY` | `float` | Currency-aware server type; represented as numeric value in Python. |
+| `MONETARY` | `sqlalchemy_cubrid.MONETARY` | `float` | Currency-aware server type; represented as numeric value in Python. Declared/compiled only; not auto-reflected. |
 | `DATE` | `sqlalchemy.Date` | `datetime.date` | Calendar date only. |
 | `TIME` | `sqlalchemy.Time` / `sqlalchemy_cubrid.TIME` | `datetime.time` | Time of day only. |
 | `DATETIME` | `sqlalchemy.DateTime` / `sqlalchemy_cubrid.DATETIME` | `datetime.datetime` | Date + time in one value. |
@@ -386,7 +388,7 @@ The table below is designed for copy/paste into tooling pipelines and architectu
 | `SET(...)` | `sqlalchemy_cubrid.SET` | Driver-dependent collection payload | CUBRID-specific collection; unique unordered members. |
 | `MULTISET(...)` | `sqlalchemy_cubrid.MULTISET` | Driver-dependent collection payload | CUBRID-specific collection; duplicates allowed. |
 | `SEQUENCE(...)` | `sqlalchemy_cubrid.SEQUENCE` | Driver-dependent collection payload | CUBRID-specific collection; ordered with duplicates. |
-| `OBJECT` | `sqlalchemy_cubrid.OBJECT` | Driver-dependent object reference | OID reference type; database-specific. |
+| `OBJECT` | `sqlalchemy_cubrid.OBJECT` | Driver-dependent object reference | OID reference type; database-specific. Declared/compiled only; not auto-reflected. |
 | `BOOLEAN` (emulated) | `sqlalchemy.Boolean` -> `SMALLINT` | `bool` | Stored as `1` / `0`; `supports_native_boolean=False`. |
 
 ### Type Resolution Flow

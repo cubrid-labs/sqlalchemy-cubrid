@@ -287,10 +287,10 @@ The CI pipeline tests the following matrix:
 | | Python 3.10 | Python 3.11 | Python 3.12 | Python 3.13 | Python 3.14 |
 |---|:---:|:---:|:---:|:---:|:---:|
 | **Offline Tests** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **CUBRID 11.4** | ✅ | — | ✅ | — | — |
-| **CUBRID 11.2** | ✅ | — | ✅ | — | — |
-| **CUBRID 11.0** | ✅ | — | ✅ | — | — |
-| **CUBRID 10.2** | ✅ | — | ✅ | — | — |
+| **CUBRID 11.4** | ✅ | — | — | — | ✅ |
+| **CUBRID 11.2** | ✅ | — | — | — | ✅ |
+| **CUBRID 11.0** | ✅ | — | — | — | ✅ |
+| **CUBRID 10.2** | ✅ | — | — | — | ✅ |
 
 ---
 
@@ -299,8 +299,8 @@ The CI pipeline tests the following matrix:
 ### Requirements
 
 - **Minimum threshold**: 95% line coverage
-- **Current offline collection**: 577 tests (`pytest --collect-only` excluding integration, SA suite, and async integration)
-- **Current line coverage**: See CI / Codecov for the latest exact value
+- **Current offline collection**: 619 tests (`pytest --collect-only` excluding `test_integration.py` and `test_suite.py`)
+- **Current line coverage**: ~98.26% offline
 - CI enforces the threshold via `--cov-fail-under=95`
 
 ### Running Coverage
@@ -310,7 +310,6 @@ The CI pipeline tests the following matrix:
 pytest test/ -v \
   --ignore=test/test_integration.py \
   --ignore=test/test_suite.py \
-  --ignore=test/test_aio_integration.py \
   --cov=sqlalchemy_cubrid \
   --cov-report=term-missing \
   --cov-fail-under=95
@@ -401,7 +400,7 @@ pre-commit run --all-files
 
 1. **Lint** — Ruff check + format verification
 2. **Offline Tests** — Python 3.10, 3.11, 3.12, 3.13, 3.14 × offline test suite
-3. **Integration Tests** — Python {3.10, 3.12} × CUBRID {10.2, 11.0, 11.2, 11.4}, plus async integration coverage
+3. **Integration Tests** — Python {3.10, 3.14} × CUBRID {10.2, 11.0, 11.2, 11.4}, plus async integration coverage
 4. **Coverage** — Enforces ≥ 95% threshold
 
 ### Publish Pipeline

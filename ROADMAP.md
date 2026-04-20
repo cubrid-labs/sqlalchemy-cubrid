@@ -11,18 +11,17 @@
 - 🗂️ [Org Project Board](https://github.com/orgs/cubrid-labs/projects/2)
 - 🌐 [Ecosystem Roadmap](https://github.com/cubrid-labs/.github/blob/main/ROADMAP.md)
 
-## Next Release — v0.8.0 — Performance & Optimization
+## Current Release Line — v1.4.x Beta — Stabilization & Polish
+
+- Documentation accuracy and consistency across README / docs / AI-facing project files
+- Continued SQLAlchemy 2.0–2.1 hardening while preparing for SA 2.2 validation
+- Reflection/autogenerate polish and benchmark-driven performance tuning
+
+## Next Minor — v1.5.x — Performance & Ecosystem
 
 - Performance profiling and benchmark integration
-- Query optimization for common patterns
-- Oxyde-inspired benchmarking methodology
-- Per-module microbenchmarks
-
-## Future — v0.9.0 — Ecosystem & Documentation
-
-- Documentation quality improvements
-- Translation sync and cookbook integration
-- Community-facing docs polish
+- Ecosystem examples and cookbook expansion
+- SQLAlchemy 2.2 readiness investigation
 
 ## Compatibility
 
@@ -33,7 +32,7 @@ Python 3.10+, SQLAlchemy 2.0–2.1, CUBRID 10.2–11.4
 ### Async Dialect Support
 - `cubrid+aiopycubrid://` URL scheme via `PyCubridAsyncDialect`
 - Full `create_async_engine` / `AsyncSession` support
-- Requires pycubrid >= 1.1.0 with async module
+- Requires pycubrid >= 1.2.0,<2.0 with async module
 
 ### JSON Type Support
 - Native JSON type with `JSON_EXTRACT`-based path expressions

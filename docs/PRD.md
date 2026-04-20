@@ -3,8 +3,8 @@
 ## 1. Overview
 
 **Project**: sqlalchemy-cubrid
-**Current Version**: 0.7.1
-**Status**: Production-ready (revived from abandoned 0.0.1)
+**Current Version**: 1.4.0
+**Status**: Beta (actively maintained; async + JSON shipped)
 **Repository**: [github.com/cubrid-labs/sqlalchemy-cubrid](https://github.com/cubrid-labs/sqlalchemy-cubrid)
 **License**: MIT
 
@@ -18,7 +18,7 @@ The original `sqlalchemy-cubrid` project was abandoned and broken:
 
 ### 1.2 What Was Built
 
-A complete ground-up rewrite delivering a production-ready CUBRID dialect:
+A complete ground-up rewrite delivering a modern CUBRID dialect for SQLAlchemy 2.0–2.1:
 
 - **Full SQLAlchemy 2.0–2.1 dialect** with statement caching
 - **Complete SQL feature coverage** — everything CUBRID supports is enabled
@@ -27,7 +27,7 @@ A complete ground-up rewrite delivering a production-ready CUBRID dialect:
 - **DML extensions** — ON DUPLICATE KEY UPDATE, MERGE, GROUP_CONCAT, TRUNCATE
 - **DDL support** — COMMENT, IF NOT EXISTS / IF EXISTS, AUTO_INCREMENT
 - **Alembic migration support** via auto-discovered entry point
-- **99.45% test coverage** (396 tests, 1082 statements, 6 unreachable)
+- **~98.26% offline coverage** (619 offline tests, 35 sync integration tests, 16 async integration tests)
 - **CI/CD** — Python 3.10–3.14 × CUBRID 10.2–11.4 matrix
 - **7 documentation guides** covering every aspect of the dialect
 
@@ -37,7 +37,7 @@ A complete ground-up rewrite delivering a production-ready CUBRID dialect:
 |---|---|---|
 | Installable on Python 3.10+ | ✅ | ✅ `pip install sqlalchemy-cubrid` |
 | SQLAlchemy 2.0 – 2.1 compatible | ✅ | ✅ Full API compliance |
-| Offline tests (no live DB) | ✅ | ✅ 396 tests, 99.45% coverage |
+| Offline tests (no live DB) | ✅ | ✅ 619 tests, ~98.26% coverage |
 | All dialect methods implemented | ✅ | ✅ Reflection, compilation, types |
 | CI/CD with version matrix | ✅ | ✅ Py 3.10–3.14 × CUBRID 10.2–11.4 |
 | Publishable to PyPI | ✅ | ✅ Release workflow on tag |
@@ -200,19 +200,19 @@ class CubridDialect(default.DefaultDialect):
 
 | Method | Source |
 |---|---|
-| `get_table_names()` | `db_class` system catalog |
-| `get_view_names()` | `db_class` (is_system_class = 1) |
-| `get_view_definition()` | `db_class.vclass_def` |
-| `get_columns()` | `_db_attribute` + type parsing |
-| `get_pk_constraint()` | `db_constraint` (type = 0) |
-| `get_foreign_keys()` | `db_constraint` (type = 3) |
-| `get_indexes()` | `db_index` + `db_index_key` |
-| `get_unique_constraints()` | `db_constraint` (type = 1) |
+| `get_table_names()` | `db_class` (`class_type = 'CLASS'`, non-system tables) |
+| `get_view_names()` | `db_class` (`class_type = 'VCLASS'`) |
+| `get_view_definition()` | `SHOW CREATE VIEW` |
+| `get_columns()` | `SHOW COLUMNS IN` + `_db_attribute.comment` |
+| `get_pk_constraint()` | `SHOW COLUMNS IN` (+ optional `db_constraint` lookup for PK name) |
+| `get_foreign_keys()` | `SHOW CREATE TABLE` parsing |
+| `get_indexes()` | `SHOW INDEXES IN` + `_db_index` flags |
+| `get_unique_constraints()` | `SHOW CREATE TABLE` parsing |
 | `get_table_comment()` | `db_class.comment` |
 | `get_check_constraints()` | Returns `[]` (CUBRID ignores CHECK) |
-| `get_schema_names()` | Returns `[""]` (single-schema) |
+| `get_schema_names()` | Returns `[]` (no schema objects) |
 | `has_table()` | Parameterized query on `db_class` |
-| `has_index()` | Query on `db_index` |
+| `has_index()` | Query on `_db_index` |
 | `has_sequence()` | Returns `False` always |
 
 #### Connection & Isolation
@@ -304,7 +304,7 @@ Limitations imposed by CUBRID itself (not the dialect):
 |---|---|---|
 | `RETURNING` clause | ❌ | CUBRID has no `INSERT/UPDATE/DELETE ... RETURNING` |
 | Native `BOOLEAN` | ⚠️ | Emulated via `SMALLINT` (0/1) |
-| `JSON` type | ❌ | CUBRID has no JSON data type or functions |
+| `JSON` type | ✅ | Native JSON type/functions are supported in CUBRID 10.2+ and mapped by the dialect |
 | `ARRAY` type | ❌ | Use `SET` / `MULTISET` / `SEQUENCE` collections |
 | Sequences | ❌ | CUBRID uses `AUTO_INCREMENT` |
 | Multi-schema | ❌ | Single-schema model |
@@ -454,7 +454,7 @@ by SQLite's dialect for the same reason.
 
 ---
 
-*Last updated: March 2026 · sqlalchemy-cubrid v0.7.1*
+*Last updated: April 2026 · sqlalchemy-cubrid v1.4.0 Beta*
 
 ---
 
@@ -530,7 +530,7 @@ AI agents can discover, learn, and recommend sqlalchemy-cubrid accurately.
 ### Cookbook Integration
 
 The [cubrid-cookbook](https://github.com/cubrid-labs/cubrid-cookbook) repository provides
-production-ready, runnable examples for sqlalchemy-cubrid:
+runnable examples for sqlalchemy-cubrid:
 
 | Example | Description |
 |---|---|

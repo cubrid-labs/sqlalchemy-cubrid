@@ -86,7 +86,7 @@ class Post(Base):
 ### Table with CUBRID-Specific Types
 
 ```python
-from sqlalchemy import Column, MetaData, Table
+from sqlalchemy import Column, Integer, MetaData, Table
 
 from sqlalchemy_cubrid import BIT, BLOB, MONETARY, MULTISET, OBJECT, SEQUENCE, SET
 
@@ -95,7 +95,7 @@ metadata = MetaData()
 products = Table(
     "products",
     metadata,
-    Column("id", primary_key=True, autoincrement=True),
+    Column("id", Integer, primary_key=True, autoincrement=True),
     Column("price", MONETARY),
     Column("colors", SET("red", "green", "blue")),
     Column("sizes", MULTISET("S", "M", "L", "XL")),
@@ -240,8 +240,7 @@ stmt = stmt.on_duplicate_key_update(
 )
 ```
 
-> **Note**: CUBRID does not support the `VALUES()` function in ODKU clauses.
-> Use `stmt.inserted.<column>` or literal values instead.
+> **Note**: `stmt.inserted.<column>` is the supported way to render `VALUES(column)` in CUBRID ODKU clauses.
 
 ---
 

@@ -5,24 +5,22 @@ sqlalchemy-cubrid and outlines the plan for SA 2.2 compatibility.
 
 ## Why `sqlalchemy>=2.0,<2.2`?
 
-sqlalchemy-cubrid depends on five SQLAlchemy compiler internals:
-`_for_update_arg`, `_limit_clause`, `_offset_clause`,
-`coercions._is_literal`, and `element._with_binary_element_type`.
-The latter two can be incrementally replaced with public equivalents,
-but the former three have no stable public alternative as of the current
-SQLAlchemy documentation. Therefore, SQLAlchemy 2.2+ compatibility is
-not guaranteed without separate verification, and a conservative `<2.2`
-upper bound is maintained.
+sqlalchemy-cubrid depends on three SQLAlchemy compiler internals:
+`_for_update_arg`, `_limit_clause`, and `_offset_clause`.
+Earlier private dependencies for literal detection and typed bind recreation
+have already been moved behind local helpers in `_compat.py`. The remaining
+three attributes still have no stable public alternative as of the current
+SQLAlchemy documentation. Therefore, SQLAlchemy 2.2+ compatibility is not
+guaranteed without separate verification, and a conservative `<2.2` upper
+bound is maintained.
 
 ## Private API Inventory
 
 | API | File | Lines | Purpose |
 |-----|------|-------|---------|
-| `select._for_update_arg` | `compiler.py` | 79–83 | Access FOR UPDATE clause metadata (columns list for `OF`) |
-| `select._limit_clause` | `compiler.py` | 89 | Get the LIMIT ClauseElement for custom CUBRID LIMIT syntax |
-| `select._offset_clause` | `compiler.py` | 90 | Get the OFFSET ClauseElement for custom CUBRID LIMIT syntax |
-| `coercions._is_literal` | `compiler.py` | 165, 243 | Detect literal values in ON DUPLICATE KEY UPDATE and MERGE |
-| `element._with_binary_element_type` | `compiler.py` | 172 | Attach column type to untyped BindParameters |
+| `select._for_update_arg` | `compiler.py` | 93 | Access FOR UPDATE clause metadata (columns list for `OF`) |
+| `select._limit_clause` | `compiler.py` | 104 | Get the LIMIT ClauseElement for custom CUBRID LIMIT syntax |
+| `select._offset_clause` | `compiler.py` | 105 | Get the OFFSET ClauseElement for custom CUBRID LIMIT syntax |
 
 ## Detail
 
@@ -55,32 +53,12 @@ since.
 **Public alternative**: None.  This is the standard approach for dialects with
 custom LIMIT syntax.
 
-### `coercions._is_literal`
+### Local compatibility helpers already removed from direct SA-private access
 
-**What it does**: Checks whether a value is a Python literal (not a SQL
-expression) for coercion purposes.
-
-**Why we use it**: In `visit_on_duplicate_key_update` and `visit_merge`, we
-need to distinguish user-supplied literal values from SQL expressions to wrap
-them in `BindParameter` correctly.
-
-**Risk**: High — prefixed with `_`, clearly private.
-
-**Public alternative**: Check `isinstance(val, (elements.ClauseElement,
-roles.SQLRole))` — if not, treat as literal.  Requires validation.
-
-### `element._with_binary_element_type`
-
-**What it does**: Creates a copy of a `BindParameter` with the given type
-attached, used for binary expression type inference.
-
-**Why we use it**: When processing ON DUPLICATE KEY UPDATE values, untyped
-`BindParameter` nodes need the target column's type for correct SQL rendering.
-
-**Risk**: High — deeply internal.
-
-**Public alternative**: Construct a new `BindParameter` with the type
-explicitly: `elements.BindParameter(None, element.value, type_=target_type)`.
+`is_literal_value()` and `bind_with_type()` now live in `_compat.py` and use
+local logic / public constructors instead of calling private SQLAlchemy helpers
+directly. They are still part of the compatibility story, but no longer count
+as direct private API dependencies.
 
 ## SA 2.2 Readiness Plan
 
@@ -93,8 +71,6 @@ explicitly: `elements.BindParameter(None, element.value, type_=target_type)`.
 - Run offline tests to detect breakage early
 
 ### Phase 3: Replace
-- `coercions._is_literal` → isinstance-based check
-- `_with_binary_element_type` → explicit BindParameter construction
 - `_for_update_arg`, `_limit_clause`, `_offset_clause` → wait for public
   alternatives or match other dialects' approach to SA 2.2
 

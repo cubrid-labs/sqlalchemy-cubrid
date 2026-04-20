@@ -114,7 +114,7 @@ VALUES (1, 'alice', 'alice@example.com')
 ON DUPLICATE KEY UPDATE name = (SELECT max(users.name) FROM users)
 ```
 
-> **Important**: CUBRID does **not** support the `VALUES()` function in ON DUPLICATE KEY UPDATE when used with arbitrary expressions. The `stmt.inserted` reference (which generates `VALUES(column)` syntax) works for simple column references but may not work in all CUBRID versions. For complex update expressions, use subqueries or literal values instead.
+> **Note**: `stmt.inserted.<column>` compiles to `VALUES(<column>)`, which is the dialect's supported way to reference the incoming row in ON DUPLICATE KEY UPDATE clauses.
 
 ---
 
@@ -356,14 +356,14 @@ stmt = (
     update(users)
     .values(status="inactive")
     .where(users.c.last_login < "2025-01-01")
-    .execution_options(**{"cubrid_limit": 100})
 )
+stmt.kwargs["cubrid_limit"] = 100
 # → UPDATE users SET status = 'inactive'
 #   WHERE users.last_login < '2025-01-01'
 #   LIMIT 100
 ```
 
-> **Note**: This is a CUBRID/MySQL extension. PostgreSQL and SQLite do not support `UPDATE … LIMIT`.
+> **Note**: The compiler reads `stmt.kwargs["cubrid_limit"]` for this extension. This is a CUBRID/MySQL extension; PostgreSQL and SQLite do not support `UPDATE … LIMIT`.
 
 ---
 
