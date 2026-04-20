@@ -273,6 +273,10 @@ class CubridDialect(default.DefaultDialect):
 
     def initialize(self, connection: Any) -> None:
         super().initialize(connection)
+        log.debug(
+            "CUBRID dialect initialized: server_version=%s",
+            self.server_version_info,
+        )
 
     # ----- Reflection methods -----
 

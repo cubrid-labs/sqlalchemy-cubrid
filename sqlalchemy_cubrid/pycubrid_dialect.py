@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Callable, cast
 
 from sqlalchemy.engine.interfaces import DBAPIConnection, DBAPIModule, ConnectArgsType
@@ -16,6 +17,8 @@ from sqlalchemy.engine.url import URL
 
 from sqlalchemy_cubrid.base import CubridExecutionContext
 from sqlalchemy_cubrid.dialect import CubridDialect
+
+log = logging.getLogger(__name__)
 
 
 class PyCubridExecutionContext(CubridExecutionContext):
@@ -70,6 +73,7 @@ class PyCubridDialect(CubridDialect):
             import pycubrid as dbapi_module
         except ImportError as e:
             raise e
+        log.debug("Loaded pycubrid DBAPI (version %s)", getattr(dbapi_module, "__version__", "?"))
         return cast(DBAPIModule, dbapi_module)  # pyright: ignore[reportInvalidCast]
 
     # Keep legacy dbapi() for SA 1.x compat
@@ -88,13 +92,21 @@ class PyCubridDialect(CubridDialect):
             raise ValueError("Unexpected database URL format")
 
         opts = url.translate_connect_args(username="user", database="database")
-        return (), {
+        kwargs = {
             "host": opts.get("host", "localhost"),
             "port": opts.get("port", 33000),
             "database": opts.get("database", ""),
             "user": opts.get("user", "dba"),
             "password": opts.get("password", ""),
         }
+        log.debug(
+            "connect args: host=%s port=%s database=%s user=%s",
+            kwargs["host"],
+            kwargs["port"],
+            kwargs["database"],
+            kwargs["user"],
+        )
+        return (), kwargs
 
     def on_connect(self) -> Callable[[Any], None] | None:
         """Return a callable to set up a new pycubrid connection.
@@ -108,6 +120,7 @@ class PyCubridDialect(CubridDialect):
             conn.autocommit = False
             if isolation_level is not None:
                 self.set_isolation_level(conn, isolation_level)
+            log.debug("on_connect: autocommit=False isolation_level=%s", isolation_level)
 
         return connect
 
