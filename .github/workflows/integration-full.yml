@@ -1,0 +1,109 @@
+name: Integration Full Matrix
+
+# Full Python x CUBRID compatibility validation.
+# Regular CI runs {3.10, 3.14} x all CUBRID versions on every PR/push.
+# This workflow runs the full 5x4 matrix on a nightly schedule, on demand
+# (workflow_dispatch), and before tagged releases.
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: integration-full-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration-full:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        cubrid-version: ["10.2", "11.0", "11.2", "11.4"]
+    services:
+      cubrid:
+        image: cubrid/cubrid:${{ matrix.cubrid-version }}
+        env:
+          CUBRID_DB: testdb
+        ports:
+          - 33000:33000
+        options: >-
+          --health-cmd "csql -u dba testdb -c 'SELECT 1'"
+          --health-interval 15s
+          --health-timeout 10s
+          --health-retries 10
+          --health-start-period 30s
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake
+
+      - name: Build and install CUBRID Python driver
+        run: |
+          git clone --branch v11.3.0.51 --depth 1 --recurse-submodules \
+            https://github.com/CUBRID/cubrid-python.git /tmp/cubrid-python
+          cd /tmp/cubrid-python
+
+          mkdir -p cci-src/build_x86_64_release
+          cd cci-src/build_x86_64_release
+          cmake ../
+          make -j$(nproc)
+          cd /tmp/cubrid-python
+
+          echo '#!/bin/bash' > build_cci.sh
+          echo 'exit 0' >> build_cci.sh
+          chmod +x build_cci.sh
+
+          pip install .
+
+      - name: Install project
+        run: |
+          pip install -e ".[dev]"
+          pip install pytest-cov
+
+      - name: Wait for CUBRID to be ready
+        run: |
+          for i in $(seq 1 30); do
+            if python -c "
+          import CUBRIDdb
+          try:
+              conn = CUBRIDdb.connect('CUBRID:localhost:33000:testdb:::', 'dba', '')
+              cur = conn.cursor()
+              cur.execute('SELECT 1')
+              cur.close()
+              conn.close()
+              print('CUBRID ready')
+              exit(0)
+          except Exception as e:
+              print(f'Attempt $i: {e}')
+              exit(1)
+          "; then
+              break
+            fi
+            echo "Waiting for CUBRID... (attempt $i/30)"
+            sleep 5
+          done
+
+      - name: Run integration tests
+        env:
+          CUBRID_TEST_URL: "cubrid://dba@localhost:33000/testdb"
+        run: |
+          python -m pytest test/test_integration.py -v --tb=short
+
+      - name: Run async integration tests
+        env:
+          CUBRID_TEST_URL: "cubrid://dba@localhost:33000/testdb"
+        run: |
+          pip install pycubrid pytest-asyncio
+          python -m pytest test/test_aio_integration.py -v --tb=short
