@@ -403,12 +403,119 @@ Because CUBRID auto-commits DDL, some statements already took effect.
 !!! tip "Create backups for destructive operations"
     Back up data before `drop_column`, `drop_table`, or multi-step restructuring migrations.
 
-Recommended pre-deploy sequence:
+### Pre-Migration Checklist
 
-1. `alembic upgrade head` on a staging copy.
-2. Run smoke tests and critical queries.
-3. `alembic downgrade -1` and `alembic upgrade head` to verify reversibility.
-4. Deploy during a maintenance window for high-impact schema changes.
+Before running migrations in production:
+
+- [ ] **One DDL operation per revision** — since each DDL auto-commits, a failure mid-revision leaves partial state. Split multi-DDL revisions.
+- [ ] **Backup database** — `cubrid backupdb demodb` before destructive operations
+- [ ] **Test upgrade + downgrade cycle** — run `alembic upgrade head && alembic downgrade -1 && alembic upgrade head` on staging
+- [ ] **Verify state after each step** — query `db_class` system table to confirm schema matches expectations
+- [ ] **Maintenance window** — schedule high-impact migrations during low-traffic periods
+- [ ] **Rollback script ready** — for each `upgrade()`, have a tested manual rollback SQL if `downgrade()` is insufficient
+
+### Recommended Pre-Deploy Sequence
+
+1. `cubrid backupdb demodb` — create a full backup
+2. `alembic upgrade head` on a staging copy
+3. Run smoke tests and critical queries against staging
+4. `alembic downgrade -1` and `alembic upgrade head` to verify reversibility
+5. Deploy during a maintenance window for high-impact schema changes
+6. Monitor `alembic current` post-deploy to confirm expected revision
+
+### Advisory CI Safety Check
+
+Add the following script to catch multi-DDL revisions early. This is advisory (warning-only)
+and does not block CI:
+
+```python
+#!/usr/bin/env python3
+"""Check Alembic revisions for multiple DDL operations (advisory).
+
+Warns when a single revision contains multiple DDL calls, which is risky
+with CUBRID's non-transactional DDL.
+
+Usage:
+    python scripts/alembic_safety_check.py alembic/versions/
+"""
+from __future__ import annotations
+
+import ast
+import sys
+from pathlib import Path
+
+DDL_CALLS = {
+    "create_table", "drop_table", "add_column", "drop_column",
+    "create_index", "drop_index", "alter_column",
+    "add_constraint", "drop_constraint",
+}
+
+
+def check_revision(path: Path) -> list[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    warnings = []
+    for func in ast.walk(tree):
+        if not isinstance(func, ast.FunctionDef) or func.name not in ("upgrade", "downgrade"):
+            continue
+        ddl_count = sum(
+            1 for node in ast.walk(func)
+            if isinstance(node, ast.Attribute) and node.attr in DDL_CALLS
+        )
+        if ddl_count > 1:
+            warnings.append(
+                f"{path.name}:{func.name}() has {ddl_count} DDL operations "
+                f"(recommended: 1 per revision for CUBRID)"
+            )
+    return warnings
+
+
+def main() -> None:
+    versions_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("alembic/versions")
+    if not versions_dir.is_dir():
+        print(f"Directory not found: {versions_dir}")
+        sys.exit(1)
+
+    all_warnings = []
+    for py_file in sorted(versions_dir.glob("*.py")):
+        all_warnings.extend(check_revision(py_file))
+
+    if all_warnings:
+        print("⚠️  Alembic safety warnings (advisory):")
+        for w in all_warnings:
+            print(f"  • {w}")
+        print(f"\nTotal: {len(all_warnings)} warning(s)")
+        print("Tip: Split multi-DDL revisions to avoid partial migration state.")
+    else:
+        print("✓ All revisions have single DDL operations per function.")
+
+
+if __name__ == "__main__":
+    main()
+```
+
+Example CI integration (`.github/workflows/ci.yml`):
+
+```yaml
+- name: Alembic safety check (advisory)
+  run: python scripts/alembic_safety_check.py alembic/versions/ || true
+```
+
+### Rollback Script Template
+
+For critical migrations, create a companion rollback SQL file:
+
+```sql
+-- rollback_001_add_users_table.sql
+-- Manual rollback for revision abc123 (add users table)
+-- Use if alembic downgrade fails or is insufficient.
+
+DROP TABLE IF EXISTS users;
+
+-- Verify: SELECT class_name FROM db_class WHERE class_name = 'users';
+-- Expected: no rows
+```
+
+Store rollback scripts in `alembic/rollbacks/` alongside your versions directory.
 
 ---
 
