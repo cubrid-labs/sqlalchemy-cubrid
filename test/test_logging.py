@@ -7,7 +7,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from sqlalchemy_cubrid.dialect import CubridDialect
 from sqlalchemy_cubrid.pycubrid_dialect import PyCubridDialect
 
 
