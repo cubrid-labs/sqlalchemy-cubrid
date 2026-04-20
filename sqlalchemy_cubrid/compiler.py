@@ -15,6 +15,14 @@ from sqlalchemy.exc import CompileError
 from sqlalchemy.sql import compiler, elements
 from sqlalchemy.sql import sqltypes
 
+from sqlalchemy_cubrid._compat import (
+    bind_with_type,
+    get_for_update_arg,
+    get_limit_clause,
+    get_offset_clause,
+    is_literal_value,
+)
+
 
 class CubridCompiler(compiler.SQLCompiler):
     """SQLCompiler subclass for CUBRID."""
@@ -82,29 +90,30 @@ class CubridCompiler(compiler.SQLCompiler):
 
         CUBRID does NOT support NOWAIT or SKIP LOCKED.
         """
-        if select._for_update_arg is None:
+        for_update_arg = get_for_update_arg(select)
+        if for_update_arg is None:
             return ""
         text = " FOR UPDATE"
-        if select._for_update_arg.of:
-            text += " OF " + ", ".join(self.process(col, **kw) for col in select._for_update_arg.of)
+        if for_update_arg.of:
+            text += " OF " + ", ".join(self.process(col, **kw) for col in for_update_arg.of)
         return text
 
     def limit_clause(self, select: Any, **kw: Any) -> str:
         # https://www.cubrid.org/manual/en/11.0/sql/query/select.html#limit-clause
         # SA 2.0: _limit_clause / _offset_clause are ClauseElements, not raw ints.
-        limit_clause = select._limit_clause
-        offset_clause = select._offset_clause
+        limit_clause = get_limit_clause(select)
+        offset_clause = get_offset_clause(select)
         if limit_clause is None and offset_clause is None:
             return ""
-        elif limit_clause is None and offset_clause is not None:
+        if limit_clause is None:
+            assert offset_clause is not None
             return " \n LIMIT %s, 1073741823" % (self.process(offset_clause, **kw),)
-        elif offset_clause is not None:
+        if offset_clause is not None:
             return " \n LIMIT %s, %s" % (
                 self.process(offset_clause, **kw),
                 self.process(limit_clause, **kw),
             )
-        else:
-            return " \n LIMIT %s" % (self.process(limit_clause, **kw),)
+        return " \n LIMIT %s" % (self.process(limit_clause, **kw),)
 
     def update_limit_clause(self, update_stmt: Any) -> str | None:  # pyright: ignore[reportIncompatibleMethodOverride]
         # https://www.cubrid.org/manual/en/11.0/sql/query/update.html
@@ -168,14 +177,14 @@ class CubridCompiler(compiler.SQLCompiler):
 
         for column in (col for col in cols if col.key in on_duplicate_update):
             val = on_duplicate_update[column.key]
-            if coercions._is_literal(val):
+            if is_literal_value(val):
                 val = elements.BindParameter(None, val, type_=column.type)
                 value_text = self.process(val.self_group(), use_schema=False)
             else:
 
                 def replace(element: Any, captured_column: Any = column, **kw: Any) -> Any | None:
                     if isinstance(element, elements.BindParameter) and element.type._isnull:
-                        return element._with_binary_element_type(captured_column.type)
+                        return bind_with_type(element, captured_column.type)
                     elif (
                         isinstance(element, elements.ColumnClause)
                         and element.table is on_duplicate.inserted_alias
@@ -208,7 +217,7 @@ class CubridCompiler(compiler.SQLCompiler):
 
     def visit_merge(self, merge_stmt: Any, **kw: Any) -> str:
         from sqlalchemy import exc
-        from sqlalchemy.sql import coercions, elements
+        from sqlalchemy.sql import elements
 
         target = merge_stmt._target
         source = merge_stmt._using_source
@@ -246,7 +255,7 @@ class CubridCompiler(compiler.SQLCompiler):
             return self.process(column_key, **kw)
 
         def _render_value(value: Any, target_column: Any | None) -> str:
-            if coercions._is_literal(value):
+            if is_literal_value(value):
                 value = elements.BindParameter(
                     None,
                     value,

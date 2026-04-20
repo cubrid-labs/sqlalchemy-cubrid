@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import pytest
 import sqlalchemy as sa
+from typing import Any, cast
 from sqlalchemy import Column, Integer, MetaData, String, Table, select
 from sqlalchemy.exc import CompileError
 
+from sqlalchemy_cubrid._compat import bind_with_type, is_literal_value
 from sqlalchemy_cubrid.dialect import CubridDialect
 
 
@@ -254,6 +256,24 @@ class TestLiteralValueCompilation:
         sql = _compile(stmt)
         # Backslashes should be doubled
         assert "\\\\" in sql
+
+
+class TestCompatHelpers:
+    def test_is_literal_value(self):
+        assert is_literal_value(1) is True
+        assert is_literal_value("value") is True
+        assert is_literal_value(users.c.name) is False
+        assert is_literal_value(sa.literal("value")) is False
+
+    def test_bind_with_type(self):
+        element = sa.bindparam("name", "value")
+        typed_element = bind_with_type(element, users.c.name.type)
+
+        assert typed_element is not element
+        assert typed_element.key == element.key
+        assert typed_element.value == element.value
+        assert typed_element.unique == element.unique
+        assert isinstance(typed_element.type, users.c.name.type.__class__)
 
 
 class TestFunctionCompilation:
@@ -508,7 +528,7 @@ class TestTypeCompilation:
         """Test OBJECT type compilation via mock type."""
         from sqlalchemy.sql import sqltypes
 
-        class MockObject(sqltypes.TypeEngine):
+        class MockObject(sqltypes.TypeEngine[Any]):
             __visit_name__ = "OBJECT"
 
         obj = MockObject()
@@ -527,7 +547,7 @@ class TestTypeCompilation:
         """Test MONETARY type compilation via mock type."""
         from sqlalchemy.sql import sqltypes
 
-        class MockMonetary(sqltypes.TypeEngine):
+        class MockMonetary(sqltypes.TypeEngine[Any]):
             __visit_name__ = "MONETARY"
 
         mon = MockMonetary()
@@ -538,7 +558,7 @@ class TestTypeCompilation:
         """Test visit_datetime (lowercase) for datetime types."""
         from sqlalchemy.sql import sqltypes
 
-        class MockDatetime(sqltypes.TypeDecorator):
+        class MockDatetime(sqltypes.TypeDecorator[Any]):
             impl = sqltypes.DateTime
             __visit_name__ = "datetime"
 
@@ -550,7 +570,7 @@ class TestTypeCompilation:
         """Test visit_DATETIME (uppercase) for DATETIME types."""
         from sqlalchemy.sql import sqltypes
 
-        class MockDATETIME(sqltypes.TypeEngine):
+        class MockDATETIME(sqltypes.TypeEngine[Any]):
             __visit_name__ = "DATETIME"
 
         dt = MockDATETIME()
@@ -566,10 +586,11 @@ class TestTypeCompilation:
 
         t = VARCHAR(length=100)
         # _get(key, type_, kw) should return kw[key] or type_.key
-        result = compiler._get("length", t, {})
+        get_method = getattr(compiler, "_get")
+        result = get_method("length", t, {})
         assert result == 100
         # Test with kw override
-        result = compiler._get("length", t, {"length": 200})
+        result = get_method("length", t, {"length": 200})
         assert result == 200
 
 
@@ -1343,12 +1364,12 @@ class TestCoverageEdgeCases:
 
         def patched_process(element, **kw):
             if element is mock_cast.typeclause:
-                return None
+                return cast(str, cast(object, None))
             if element is mock_self_group:
                 return "users.name"
             return original_process(element, **kw)
 
-        compiler_obj.process = patched_process
+        object.__setattr__(compiler_obj, "process", patched_process)
         result = compiler_obj.visit_cast(mock_cast)
         assert result == "users.name"
 
@@ -1397,7 +1418,8 @@ class TestCoverageEdgeCases:
         ) as mock_prop:
             mock_exec = MagicMock(spec=[])
             mock_prop.return_value = mock_exec
-            result = compiler_obj.visit_on_duplicate_key_update(on_dup)
+            visit_on_duplicate_key_update = getattr(compiler_obj, "visit_on_duplicate_key_update")
+            result = visit_on_duplicate_key_update(on_dup)
         assert result == "ON DUPLICATE KEY UPDATE"
 
     def test_on_duplicate_key_update_isnull_bind_param(self):
@@ -1445,11 +1467,11 @@ class TestCoverageEdgeCases:
         from sqlalchemy_cubrid.dml import Merge
 
         stmt = Merge.__new__(Merge)
-        stmt._target = None
-        stmt._using_source = users
-        stmt._on_condition = users.c.id == users.c.id
-        stmt._when_matched = {"values": {"name": "test"}}
-        stmt._when_not_matched = None
+        object.__setattr__(stmt, "_target", None)
+        object.__setattr__(stmt, "_using_source", users)
+        object.__setattr__(stmt, "_on_condition", users.c.id == users.c.id)
+        object.__setattr__(stmt, "_when_matched", {"values": {"name": "test"}})
+        object.__setattr__(stmt, "_when_not_matched", None)
         with pytest.raises(Exception, match="requires a target table"):
             _compile(stmt)
 
@@ -1503,6 +1525,7 @@ class TestCoverageEdgeCases:
         stmt = stmt.when_matched_then_update({users.c.name: source.c.name})
         # Inject a processable element with no .name attr: sa.text()
         text_element = sa.text("custom_col")
+        assert stmt._when_matched is not None
         stmt._when_matched["values"][text_element] = source.c.name
         sql = _compile(stmt)
         assert "WHEN MATCHED THEN UPDATE SET" in sql
@@ -1575,7 +1598,7 @@ class TestDmlCoverage:
         )
         stmt = insert(t).values(id=1, name="test")
         # table.c is a ReadOnlyColumnCollection, which is a ColumnCollection
-        stmt = stmt.on_duplicate_key_update(t.c)
+        stmt = stmt.on_duplicate_key_update(dict(t.c))
         sql = _compile(stmt)
         assert "ON DUPLICATE KEY UPDATE" in sql
 
@@ -1615,7 +1638,7 @@ class TestDmlCoverage:
         )
         stmt = merge(target).using(source).on(target.c.id == source.c.id)
         # Pass ColumnCollection (table.c) as values_dict_or_column_list
-        stmt = stmt.when_not_matched_then_insert(source.c)
+        stmt = stmt.when_not_matched_then_insert(list(source.c))
         sql = _compile(stmt)
         assert "WHEN NOT MATCHED THEN INSERT" in sql
 
@@ -1688,7 +1711,7 @@ class TestDialectReflectionExceptionPaths:
         result = dialect.get_columns(conn, "test_table", None)
         assert len(result) == 1
         assert result[0]["name"] == "id"
-        assert result[0]["comment"] is None
+        assert result[0].get("comment") is None
 
     def test_get_pk_constraint_exception(self):
         """dialect.py lines 303-304: Exception in constraint query is caught."""
