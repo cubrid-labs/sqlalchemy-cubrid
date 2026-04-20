@@ -27,7 +27,9 @@ production-ready SQLAlchemy dialect that supports the modern 2.0–2.1 API.
 **sqlalchemy-cubrid** bridges that gap:
 
 - Full SQLAlchemy 2.0–2.1 dialect with **statement caching** and **PEP 561 typing**
-- **577 offline tests** with **99%+ code coverage** — no database required to run them
+- **597 offline tests** with **99%+ code coverage** — no database required to run them
+- **Concurrency stress tests** — `QueuePool` sync threaded + asyncio.gather workloads validated against live CUBRID
+- **SQLAlchemy 2.2-ready compat shim** — private API access wrapped in `_compat.py` (still pinned `<2.2` until full SA 2.2 validation)
 - Tested against **4 CUBRID versions** (10.2, 11.0, 11.2, 11.4) across **Python 3.10 -- 3.14**
 - CUBRID-specific DML constructs: `ON DUPLICATE KEY UPDATE`, `MERGE`, `REPLACE INTO`
 - Alembic migration support out of the box
