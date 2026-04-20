@@ -158,21 +158,22 @@ These will be migrated to public APIs when SA 2.2 is released.
 
 ## CI Matrix
 
-| Dimension | Values |
-|---|---|
-| Python (offline) | 3.10, 3.11, 3.12, 3.13, 3.14 |
-| Python (integration) | 3.10, 3.12 |
-| CUBRID (integration) | 10.2, 11.0, 11.2, 11.4 |
+| Dimension | PR / push | Nightly + tag + dispatch |
+|---|---|---|
+| Offline tests | Python 3.10, 3.11, 3.12, 3.13, 3.14 | Same |
+| Integration tests | Python {3.10, 3.14} × CUBRID {10.2, 11.0, 11.2, 11.4} = 8 jobs | Python {3.10, 3.11, 3.12, 3.13, 3.14} × CUBRID {10.2, 11.0, 11.2, 11.4} = 20 jobs |
+
+The 5 × 4 full integration matrix is run by `.github/workflows/integration-full.yml` on a nightly schedule, on tagged releases, and on demand via `workflow_dispatch`.
 
 ## Test Coverage
 
 | Metric | Value |
 |---|---|
-| Offline tests | 577 |
+| Offline tests | 619 |
 | Integration tests | 35 sync + 16 async |
 | Line coverage | See CI / Codecov for latest exact value |
 | Coverage threshold | 95% (CI-enforced) |
 
 ---
 
-*See also: [Connection Guide](CONNECTION.md) · [Type System](TYPES.md) · [Feature Support](FEATURE_SUPPORT.md) · [Driver Compatibility](DRIVER_COMPAT.md)*
+*See also: [Connection Guide](CONNECTION.md) · [Type System](TYPES.md) · [Feature Support](FEATURE_SUPPORT.md) · [Driver Compatibility](DRIVER_COMPAT.md) · [Changelog](../CHANGELOG.md)*
