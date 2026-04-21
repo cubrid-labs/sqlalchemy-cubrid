@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import logging
+from importlib import import_module
 from typing import Any, Callable, cast
 
 from sqlalchemy.engine.interfaces import DBAPIConnection, DBAPIModule, ConnectArgsType
@@ -70,7 +71,7 @@ class PyCubridDialect(CubridDialect):
     def import_dbapi(cls) -> DBAPIModule:
         """Import and return the pycubrid DBAPI module."""
         try:
-            import pycubrid as dbapi_module
+            dbapi_module = import_module("pycubrid")
         except ImportError as e:
             raise e
         log.debug("Loaded pycubrid DBAPI (version %s)", getattr(dbapi_module, "__version__", "?"))
@@ -125,18 +126,8 @@ class PyCubridDialect(CubridDialect):
         return connect
 
     def do_ping(self, dbapi_connection: DBAPIConnection) -> bool:
-        """Ping the server to check connection liveness.
-
-        pycubrid does not expose a native ``ping()`` method, so we
-        execute a lightweight query instead.
-        """
-        cursor = dbapi_connection.cursor()
-        try:
-            cursor.execute("SELECT 1")
-            cursor.fetchone()
-        finally:
-            cursor.close()
-        return True
+        """Ping using native pycubrid CHECK_CAS (FC=32). Requires pycubrid>=1.3.2."""
+        return bool(dbapi_connection.ping(False))
 
 
 dialect = PyCubridDialect

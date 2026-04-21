@@ -127,7 +127,7 @@ Use `cubrid://` for the C-extension driver (best performance), or `cubrid+pycubr
 
 ## Async Connection
 
-For async applications, use the `cubrid+aiopycubrid://` URL scheme with `create_async_engine`. Requires `pycubrid>=1.2.0,<2.0`.
+For async applications, use the `cubrid+aiopycubrid://` URL scheme with `create_async_engine`. Requires `pycubrid>=1.3.2,<2.0`.
 
 ```python
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -337,7 +337,7 @@ engine = create_engine(
 
 ### `pool_pre_ping` (Recommended)
 
-When `pool_pre_ping=True`, SQLAlchemy calls `do_ping()` on each connection before handing it to your application. The CUBRIDdb dialect uses the native `connection.ping()` method from the CUBRID Python driver. The pycubrid dialect executes `SELECT 1` since pycubrid has no native `ping()` method. Both approaches prevent "stale connection" errors.
+When `pool_pre_ping=True`, SQLAlchemy calls `do_ping()` on each connection before handing it to your application. The CUBRIDdb dialect uses the native `connection.ping()` method from the CUBRID Python driver. Both pycubrid dialects now use the native `Connection.ping(False)` / `AsyncConnection.ping(False)` `CHECK_CAS` path from pycubrid, avoiding an extra `SELECT 1` round trip while still preventing stale-connection errors.
 
 This prevents "stale connection" errors that occur when:
 - The CUBRID broker restarts

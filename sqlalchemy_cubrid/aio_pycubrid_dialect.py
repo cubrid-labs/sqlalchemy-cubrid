@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from importlib import import_module
 from typing import Any, Callable, cast
 
 from sqlalchemy.connectors.asyncio import (
@@ -43,12 +44,15 @@ class AsyncAdapt_pycubrid_connection(AsyncAdapt_dbapi_connection):
     def autocommit(self, value: bool) -> None:
         self.await_(self._connection.set_autocommit(value))  # type: ignore[union-attr]
 
+    def ping(self, reconnect: bool = True) -> bool:
+        return self.await_(self._connection.ping(reconnect))  # type: ignore[union-attr]
+
 
 class AsyncAdapt_pycubrid_dbapi(AsyncAdapt_dbapi_module):
     def __init__(self, aio_module: Any) -> None:
         self._aio_module = aio_module
 
-        import pycubrid as sync_module
+        sync_module = import_module("pycubrid")
 
         self.paramstyle = sync_module.paramstyle
         self.Error = sync_module.Error
@@ -86,7 +90,7 @@ class PyCubridAsyncDialect(PyCubridDialect):
 
     @classmethod
     def import_dbapi(cls) -> DBAPIModule:
-        import pycubrid.aio as aio_module
+        aio_module = import_module("pycubrid.aio")
 
         return cast(DBAPIModule, AsyncAdapt_pycubrid_dbapi(aio_module))
 
@@ -118,13 +122,7 @@ class PyCubridAsyncDialect(PyCubridDialect):
         return connect
 
     def do_ping(self, dbapi_connection: Any) -> bool:
-        cursor = dbapi_connection.cursor()
-        try:
-            cursor.execute("SELECT 1")
-            cursor.fetchone()
-        finally:
-            cursor.close()
-        return True
+        return bool(dbapi_connection.ping(False))
 
 
 dialect = PyCubridAsyncDialect

@@ -221,7 +221,7 @@ stmt = insert(users).values(name="Alice").on_duplicate_key_update(name="Alice Up
 
 ### sqlalchemy-cubrid는 async를 지원하나요?
 
-예. pycubrid async 드라이버와 함께 `create_async_engine("cubrid+aiopycubrid://...")`를 사용하세요. `pycubrid>=1.2.0,<2.0`이 필요합니다. Core와 ORM 기능 모두 `AsyncSession`에서 동작합니다.
+예. pycubrid async 드라이버와 함께 `create_async_engine("cubrid+aiopycubrid://...")`를 사용하세요. `pycubrid>=1.3.2,<2.0`이 필요합니다. 두 pycubrid 방언 모두 `pool_pre_ping`에서 네이티브 `Connection.ping(False)` / `AsyncConnection.ping(False)`를 사용하며, Core와 ORM 기능 모두 `AsyncSession`에서 동작합니다.
 
 
 ## 관련 프로젝트

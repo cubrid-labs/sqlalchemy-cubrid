@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.4.2] - 2026-04-21
+
+### Changed
+- **Native pycubrid ping for pooling** — both sync and async pycubrid dialects now use native `Connection.ping()` / `AsyncConnection.ping()` (`CHECK_CAS`, FC=32) in `do_ping()` for lower `pool_pre_ping` latency (~0.5–2ms instead of ~2–10ms query round trips) (#149, pycubrid#70, pycubrid#95)
+- **pycubrid extra floor raised** — `sqlalchemy-cubrid[pycubrid]` now requires `pycubrid>=1.3.2,<2.0` so sync and async `pool_pre_ping` share the same native ping contract
+
 ## [1.4.1] - 2026-04-21
 
 ### Changed

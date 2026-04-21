@@ -220,7 +220,7 @@ stmt = insert(users).values(name="Alice").on_duplicate_key_update(name="Alice Up
 
 ### sqlalchemy-cubrid 支持 async 吗？
 
-支持。请配合 pycubrid 异步驱动使用 `create_async_engine("cubrid+aiopycubrid://...")`。需要 `pycubrid>=1.2.0,<2.0`。所有 Core 和 ORM 功能都可在 `AsyncSession` 中使用。
+支持。请配合 pycubrid 异步驱动使用 `create_async_engine("cubrid+aiopycubrid://...")`。需要 `pycubrid>=1.3.2,<2.0`。两个 pycubrid 方言现在都会在 `pool_pre_ping` 中使用原生 `Connection.ping(False)` / `AsyncConnection.ping(False)`，所有 Core 和 ORM 功能都可在 `AsyncSession` 中使用。
 
 
 ## 相关项目

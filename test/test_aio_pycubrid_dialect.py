@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import types
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from sqlalchemy.engine import url
@@ -43,7 +44,7 @@ class TestPyCubridAsyncDialectImportDbapi:
     def test_import_dbapi_returns_async_adapt_module(self):
         fake_aio = types.ModuleType("pycubrid.aio")
         fake_sync = types.ModuleType("pycubrid")
-        fake_sync.paramstyle = "qmark"  # type: ignore[attr-defined]
+        cast(Any, fake_sync).paramstyle = "qmark"
         for attr in [
             "Error",
             "OperationalError",
@@ -163,6 +164,20 @@ class TestAsyncAdaptPycubridConnection:
 
         assert isinstance(cur, AsyncAdapt_pycubrid_cursor)
 
+    def test_ping_awaits_underlying_async_ping(self):
+        mock_dbapi = MagicMock()
+        mock_async_conn = MagicMock()
+        mock_async_conn.ping.return_value = object()
+
+        conn = AsyncAdapt_pycubrid_connection(mock_dbapi, mock_async_conn)
+
+        with patch.object(conn, "await_", return_value=False) as mock_await:
+            result = conn.ping(False)
+
+        assert result is False
+        mock_async_conn.ping.assert_called_once_with(False)
+        mock_await.assert_called_once_with(mock_async_conn.ping.return_value)
+
 
 class TestAsyncAdaptPycubridCursor:
     def test_setinputsizes_is_noop(self):
@@ -192,15 +207,12 @@ class TestAsyncAdaptPycubridCursor:
 
 
 class TestPyCubridAsyncDialectDoPing:
-    def test_do_ping_executes_select_1(self):
+    def test_do_ping_propagates_boolean(self):
         dialect = PyCubridAsyncDialect()
         mock_conn = MagicMock()
-        mock_cursor = MagicMock()
-        mock_conn.cursor.return_value = mock_cursor
+        mock_conn.ping.return_value = False
 
         result = dialect.do_ping(mock_conn)
 
-        mock_cursor.execute.assert_called_once_with("SELECT 1")
-        mock_cursor.fetchone.assert_called_once()
-        mock_cursor.close.assert_called_once()
-        assert result is True
+        mock_conn.ping.assert_called_once_with(False)
+        assert result is False

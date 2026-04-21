@@ -56,16 +56,10 @@ class TestPyCubridDialectBasics:
         assert imported is fake_module
 
     def test_import_dbapi_import_error(self):
-        import builtins
-
-        real_import = builtins.__import__
-
-        def _fake_import(name, *args, **kwargs):
-            if name == "pycubrid":
-                raise ImportError("pycubrid not installed")
-            return real_import(name, *args, **kwargs)
-
-        with patch("builtins.__import__", side_effect=_fake_import):
+        with patch(
+            "sqlalchemy_cubrid.pycubrid_dialect.import_module",
+            side_effect=ImportError("pycubrid not installed"),
+        ):
             with pytest.raises(ImportError, match="pycubrid not installed"):
                 PyCubridDialect.import_dbapi()
 
@@ -154,31 +148,25 @@ class TestPyCubridOnConnect:
 
 
 class TestPyCubridDoPing:
-    def test_do_ping_success(self):
+    def test_do_ping_propagates_true(self):
         dialect = PyCubridDialect()
         dbapi_conn = MagicMock()
-        cursor = MagicMock()
-        cursor.fetchone.return_value = (1,)
-        dbapi_conn.cursor.return_value = cursor
+        dbapi_conn.ping.return_value = True
 
         result = dialect.do_ping(dbapi_conn)
 
         assert result is True
-        cursor.execute.assert_called_once_with("SELECT 1")
-        cursor.fetchone.assert_called_once()
-        cursor.close.assert_called_once()
+        dbapi_conn.ping.assert_called_once_with(False)
 
-    def test_do_ping_always_closes_cursor(self):
+    def test_do_ping_propagates_false(self):
         dialect = PyCubridDialect()
         dbapi_conn = MagicMock()
-        cursor = MagicMock()
-        cursor.execute.side_effect = RuntimeError("connection lost")
-        dbapi_conn.cursor.return_value = cursor
+        dbapi_conn.ping.return_value = False
 
-        with pytest.raises(RuntimeError, match="connection lost"):
-            dialect.do_ping(dbapi_conn)
+        result = dialect.do_ping(dbapi_conn)
 
-        cursor.close.assert_called_once()
+        assert result is False
+        dbapi_conn.ping.assert_called_once_with(False)
 
 
 class TestPyCubridExecutionContext:

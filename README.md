@@ -152,7 +152,7 @@ async with AsyncSession(engine) as session:
 - **No multi-schema** — single schema per database
 - **DDL auto-commits** — migrations are not transactional (`transactional_ddl = False`)
 - **SQLAlchemy 2.0–2.1 only** — pinned to `<2.2` due to internal API dependencies ([details](docs/ARCHITECTURE.md))
-- **Async requires pycubrid >= 1.2.0,<2.0** — the `cubrid+aiopycubrid://` driver needs the async-capable pycubrid package line currently supported by this project
+- **Async requires pycubrid >= 1.3.2,<2.0** — the `cubrid+aiopycubrid://` driver needs the async-capable pycubrid package line currently supported by this project
 
 ## Documentation
 
@@ -178,8 +178,8 @@ async with AsyncSession(engine) as session:
 | CUBRID | 10.2, 11.0, 11.2, 11.4 |
 | SQLAlchemy | 2.0–2.1 |
 | Alembic | >=1.7 |
-| pycubrid (sync) | >=1.2.0,<2.0 |
-| pycubrid (async) | >=1.2.0,<2.0 |
+| pycubrid (sync) | >=1.3.2,<2.0 |
+| pycubrid (async) | >=1.3.2,<2.0 |
 
 ## FAQ
 
@@ -221,7 +221,7 @@ stmt = insert(users).values(name="Alice").on_duplicate_key_update(name="Alice Up
 
 ### Does sqlalchemy-cubrid support async?
 
-Yes. Use `create_async_engine("cubrid+aiopycubrid://...")` with the pycubrid async driver. Requires `pycubrid>=1.2.0,<2.0`. All Core and ORM features work with `AsyncSession`.
+Yes. Use `create_async_engine("cubrid+aiopycubrid://...")` with the pycubrid async driver. Requires `pycubrid>=1.3.2,<2.0`. Both pycubrid dialects use native `Connection.ping(False)` / `AsyncConnection.ping(False)` for `pool_pre_ping`, and all Core and ORM features work with `AsyncSession`.
 
 
 ## Related Projects

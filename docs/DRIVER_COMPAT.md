@@ -156,6 +156,8 @@ tested and the CI matrix updated. Potential concerns:
 
 ## Installation Notes
 
+For the pure Python pycubrid dialect variants, install `sqlalchemy-cubrid[pycubrid]` with `pycubrid>=1.3.2,<2.0`. That minimum version is required for native sync and async `ping(False)` support used by `pool_pre_ping`.
+
 ### From Source (Required for CI)
 
 ```bash

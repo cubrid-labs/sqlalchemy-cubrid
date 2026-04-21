@@ -211,10 +211,12 @@ OperationalError: broker is not available
 ```python
 engine = create_engine(
     "cubrid://dba@localhost:33000/testdb",
-    pool_pre_ping=True,  # Test connection before checkout
+    pool_pre_ping=True,  # Native driver ping before checkout
     pool_recycle=240,     # Recycle before SESSION_TIMEOUT (300s)
 )
 ```
+
+For `cubrid+pycubrid://` and `cubrid+aiopycubrid://`, `pool_pre_ping=True` now uses pycubrid's native `CHECK_CAS` ping instead of issuing `SELECT 1`.
 
 See [Connection Guide — Pool Tuning](CONNECTION.md#connection-pool-tuning) for detailed recommendations.
 
