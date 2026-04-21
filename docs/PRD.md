@@ -29,7 +29,7 @@ A complete ground-up rewrite delivering a modern CUBRID dialect for SQLAlchemy 2
 - **Alembic migration support** via auto-discovered entry point
 - **~98.26% offline coverage** (619 offline tests, 35 sync integration tests, 16 async integration tests)
 - **CI/CD** — Python 3.10–3.14 × CUBRID 10.2–11.4 matrix
-- **7 documentation guides** covering every aspect of the dialect
+- **17 English documentation files** in `docs/` covering the dialect
 
 ### 1.3 Success Criteria — Status
 
@@ -43,7 +43,7 @@ A complete ground-up rewrite delivering a modern CUBRID dialect for SQLAlchemy 2
 | Publishable to PyPI | ✅ | ✅ Release workflow on tag |
 | Alembic support | ✅ | ✅ CubridImpl auto-discovered + autogenerate |
 | ≥ 95% code coverage | ✅ | ✅ ~98.26% (CI-enforced) |
-| Comprehensive documentation | ✅ | ✅ 8 guide files + README |
+| Comprehensive documentation | ✅ | ✅ 17 English docs files + README |
 
 ---
 
@@ -100,6 +100,7 @@ graph TD
 [project.entry-points."sqlalchemy.dialects"]
 cubrid = "sqlalchemy_cubrid.dialect:CubridDialect"
 "cubrid.cubrid" = "sqlalchemy_cubrid.dialect:CubridDialect"
+"cubrid.pycubrid" = "sqlalchemy_cubrid.pycubrid_dialect:PyCubridDialect"
 "cubrid.aiopycubrid" = "sqlalchemy_cubrid.aio_pycubrid_dialect:PyCubridAsyncDialect"
 
 [project.entry-points."alembic.ddl"]
@@ -283,7 +284,7 @@ stmt = (
 | `test_trace.py` | 7 | Query trace utility |
 | **Total** | **619 offline tests** | **~98.26% coverage** |
 
-### 4.2 Unreachable Lines (3)
+### 4.2 Unreachable Lines (4 entries)
 
 | File | Line | Reason |
 |---|---|---|
@@ -294,13 +295,11 @@ stmt = (
 
 ### 4.3 CI Matrix
 
-| | Python 3.10 | Python 3.11 | Python 3.12 | Python 3.13 |
-|---|:---:|:---:|:---:|:---:|
-| **Offline Tests** | ✅ | ✅ | ✅ | ✅ |
-| **CUBRID 11.4** | ✅ | — | ✅ | — |
-| **CUBRID 11.2** | ✅ | — | ✅ | — |
-| **CUBRID 11.0** | ✅ | — | ✅ | — |
-| **CUBRID 10.2** | ✅ | — | ✅ | — |
+| Workflow | Python versions | CUBRID versions | Source |
+|---|---|---|---|
+| PR/push offline tests | 3.10, 3.11, 3.12, 3.13, 3.14 | N/A (offline) | `.github/workflows/ci.yml` |
+| PR/push integration tests | 3.10, 3.14 | 10.2, 11.0, 11.2, 11.4 | `.github/workflows/ci.yml` |
+| Nightly / tagged / manual full integration matrix | 3.10, 3.11, 3.12, 3.13, 3.14 | 10.2, 11.0, 11.2, 11.4 | `.github/workflows/integration-full.yml` |
 
 ---
 
