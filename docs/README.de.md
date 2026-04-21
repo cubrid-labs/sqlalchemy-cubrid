@@ -1,42 +1,77 @@
 # sqlalchemy-cubrid
 
-**CUBRID-Dialekt für SQLAlchemy 2.0–2.1**
+**SQLAlchemy-2.0–2.1-Dialekt für die CUBRID-Datenbank** — Python-ORM, Schema-Reflexion, Alembic-Migrationen und Typzuordnung für SQLAlchemy und CUBRID-spezifische Typen.
 
 [🇰🇷 한국어](README.ko.md) · [🇺🇸 English](../README.md) · [🇨🇳 中文](README.zh.md) · [🇮🇳 हिन्दी](README.hi.md) · [🇩🇪 Deutsch](README.de.md) · [🇷🇺 Русский](README.ru.md)
 
-[![PyPI](https://img.shields.io/pypi/v/sqlalchemy-cubrid.svg)](https://pypi.org/project/sqlalchemy-cubrid/)
-[![CI](https://github.com/cubrid-labs/sqlalchemy-cubrid/actions/workflows/ci.yml/badge.svg)](https://github.com/cubrid-labs/sqlalchemy-cubrid/actions/workflows/ci.yml)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![SQLAlchemy 2.0](https://img.shields.io/badge/SQLAlchemy-2.0-green.svg)](https://www.sqlalchemy.org/)
-[![Coverage 99%](https://img.shields.io/badge/coverage-99%25-brightgreen.svg)](DEVELOPMENT.md#code-coverage)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+<!-- BADGES:START -->
+[![PyPI version](https://img.shields.io/pypi/v/sqlalchemy-cubrid)](https://pypi.org/project/sqlalchemy-cubrid)
+[![python version](https://img.shields.io/pypi/pyversions/sqlalchemy-cubrid)](https://www.python.org)
+[![ci workflow](https://github.com/cubrid-labs/sqlalchemy-cubrid/actions/workflows/ci.yml/badge.svg)](https://github.com/cubrid-labs/sqlalchemy-cubrid/actions/workflows/ci.yml)
+[![integration-full workflow](https://github.com/cubrid-labs/sqlalchemy-cubrid/actions/workflows/integration-full.yml/badge.svg)](https://github.com/cubrid-labs/sqlalchemy-cubrid/actions/workflows/integration-full.yml)
+[![coverage](https://codecov.io/gh/cubrid-labs/sqlalchemy-cubrid/branch/main/graph/badge.svg)](https://codecov.io/gh/cubrid-labs/sqlalchemy-cubrid)
+[![license](https://img.shields.io/github/license/cubrid-labs/sqlalchemy-cubrid)](https://github.com/cubrid-labs/sqlalchemy-cubrid/blob/main/LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/cubrid-labs/sqlalchemy-cubrid)](https://github.com/cubrid-labs/sqlalchemy-cubrid)
+[![docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://cubrid-labs.github.io/sqlalchemy-cubrid/)
+<!-- BADGES:END -->
 
 ---
 
+> **Status: Beta.** Die zentrale öffentliche API folgt Semantic Versioning; Minor-Releases können zusätzliche Funktionen und Fehlerbehebungen enthalten, solange sich das Projekt noch in aktiver Entwicklung befindet.
+
 ## Warum sqlalchemy-cubrid?
 
-CUBRID ist eine leistungsstarke relationale Open-Source-Datenbank, die in koreanischen
-Behörden und Unternehmensanwendungen weit verbreitet ist. Bisher gab es keinen
-produktionsreifen SQLAlchemy-Dialekt, der die moderne 2.0–2.1-API unterstützt.
+CUBRID ist eine leistungsstarke relationale Open-Source-Datenbank, die in
+koreanischen Behörden und Unternehmensanwendungen weit verbreitet ist. Bislang
+gab es keinen aktiv gepflegten SQLAlchemy-Dialekt, der die moderne 2.0–2.1-API
+unterstützt.
 
 **sqlalchemy-cubrid** schließt diese Lücke:
 
-- Vollständiger SQLAlchemy 2.0–2.1 Dialekt mit **Statement-Caching** und **PEP 561 Typisierung**
-- **396 Offline-Tests** mit **99,45% Codeabdeckung** — keine Datenbank zum Ausführen erforderlich
-- Getestet mit **4 CUBRID-Versionen** (10.2, 11.0, 11.2, 11.4) auf **Python 3.10 -- 3.14**
+- Vollständiger SQLAlchemy-2.0–2.1-Dialekt mit **Statement-Caching** und **PEP-561-Typisierung**
+- **619 Offline-Tests** mit **~98,26 % Codeabdeckung** — zum Ausführen ist keine Datenbank erforderlich
+- **Nebenläufigkeits-Stresstests** — `QueuePool`-basierte synchrone Threads + `asyncio.gather`-Workloads gegen echtes CUBRID validiert
+- **SQLAlchemy-2.2-fähiger Compat-Shim** — Zugriff auf private APIs in `_compat.py` gekapselt (bis zur vollständigen SA-2.2-Validierung weiterhin auf `<2.2` festgelegt)
+- Gegen **4 CUBRID-Versionen** (10.2, 11.0, 11.2, 11.4) auf **Python 3.10 -- 3.14** getestet
 - CUBRID-spezifische DML-Konstrukte: `ON DUPLICATE KEY UPDATE`, `MERGE`, `REPLACE INTO`
-- Alembic-Migrationsunterstützung direkt einsatzbereit
+- Alembic-Migrationsunterstützung sofort einsatzbereit
+- **Drei Treiberoptionen** — C-Erweiterung (`cubrid://`), reines Python (`cubrid+pycubrid://`) oder asynchrones reines Python (`cubrid+aiopycubrid://`)
 
-## Voraussetzungen
+## Architektur
+
+```mermaid
+flowchart TD
+    app["Application"] --> sa["SQLAlchemy Core/ORM"]
+    sa --> dialect["CubridDialect"]
+    dialect --> pycubrid["pycubrid driver"]
+    dialect --> cext["CUBRIDdb driver"]
+    dialect --> aio["pycubrid.aio async driver"]
+    pycubrid --> server["CUBRID Server"]
+    cext --> server
+    aio --> server
+```
+
+```mermaid
+flowchart TD
+    expr["SQL Expression"] --> compiler["CubridSQLCompiler"] --> sql["SQL String"]
+```
+
+## Anforderungen
 
 - Python 3.10+
-- SQLAlchemy 2.0 -- 2.1
-- [CUBRID-Python](https://github.com/CUBRID/cubrid-python) Treiber
+- SQLAlchemy 2.0 – 2.1
+- [CUBRID-Python](https://github.com/CUBRID/cubrid-python) (C-Erweiterung) **oder** [pycubrid](https://github.com/cubrid-labs/pycubrid) (reines Python)
 
 ## Installation
 
 ```bash
 pip install sqlalchemy-cubrid
+```
+
+Mit dem Pure-Python-Treiber (kein C-Build erforderlich):
+
+```bash
+pip install "sqlalchemy-cubrid[pycubrid]"
 ```
 
 Mit Alembic-Unterstützung:
@@ -87,15 +122,38 @@ with Session(engine) as session:
     session.commit()
 ```
 
+### Async
+
+```python
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy import text
+
+engine = create_async_engine("cubrid+aiopycubrid://dba:password@localhost:33000/demodb")
+
+async with AsyncSession(engine) as session:
+    result = await session.execute(text("SELECT 1"))
+    print(result.scalar())
+```
+
 ## Funktionen
 
-- Vollständiges Typsystem -- numerisch, Zeichenketten, Datum/Zeit, Bit, LOB und Sammlungstypen
+- Typzuordnung für SQLAlchemy-Standardtypen und CUBRID-spezifische Typen — numerische, String-, Datum/Zeit-, Bit-, LOB-, Collection- und JSON-Typen
 - SQL-Kompilierung -- SELECT, JOIN, CAST, LIMIT/OFFSET, Unterabfragen, CTEs, Fensterfunktionen
 - DML-Erweiterungen -- `ON DUPLICATE KEY UPDATE`, `MERGE`, `REPLACE INTO`, `FOR UPDATE`, `TRUNCATE`
 - DDL-Unterstützung -- `COMMENT`, `IF NOT EXISTS` / `IF EXISTS`, `AUTO_INCREMENT`
 - Schema-Reflexion -- Tabellen, Views, Spalten, PKs, FKs, Indizes, Unique-Constraints, Kommentare
 - Alembic-Migrationen über `CubridImpl` (automatisch erkannter Entry-Point)
-- Alle 6 CUBRID-Isolationsstufen (duale Granularität: Klassen- + Instanzebene)
+- Alle 6 CUBRID-Isolationsstufen (duale Granularität: Klassenebene + Instanzebene)
+- Async-Unterstützung — `create_async_engine("cubrid+aiopycubrid://...")` über pycubrid.aio
+
+## Bekannte Einschränkungen
+
+- **Kein `RETURNING`** — `INSERT/UPDATE/DELETE ... RETURNING` wird nicht unterstützt; stattdessen `cursor.lastrowid` oder `LAST_INSERT_ID()` verwenden
+- **Keine Sequenzen** — CUBRID verwendet ausschließlich `AUTO_INCREMENT`
+- **Kein Multi-Schema** — ein einzelnes Schema pro Datenbank
+- **DDL committet automatisch** — Migrationen sind nicht transaktional (`transactional_ddl = False`)
+- **Nur SQLAlchemy 2.0–2.1** — wegen interner API-Abhängigkeiten auf `<2.2` festgelegt ([Details](ARCHITECTURE.md))
+- **Async erfordert pycubrid >= 1.2.0,<2.0** — der Treiber `cubrid+aiopycubrid://` benötigt die von diesem Projekt aktuell unterstützte async-fähige pycubrid-Paketlinie
 
 ## Dokumentation
 
@@ -109,26 +167,82 @@ with Session(engine) as session:
 | [Feature-Unterstützung](FEATURE_SUPPORT.md) | Vergleich mit MySQL, PostgreSQL, SQLite |
 | [ORM-Kochbuch](ORM_COOKBOOK.md) | Praktische ORM-Beispiele, Beziehungen, Abfragen |
 | [Entwicklung](DEVELOPMENT.md) | Entwicklungsumgebung, Tests, Docker, Abdeckung, CI/CD |
-| [Treiberkompatibilität](DRIVER_COMPAT.md) | CUBRID-Python Treiberversionen und bekannte Probleme |
+| [Treiberkompatibilität](DRIVER_COMPAT.md) | CUBRID-Python-Treiberversionen und bekannte Probleme |
 | [Fehlerbehebung](TROUBLESHOOTING.md) | Häufige Probleme, Fehlerlösungen, Debugging-Techniken |
+| [Asynchrone Verbindung](CONNECTION.md#async-connection) | Einrichtung einer Async-Engine mit `cubrid+aiopycubrid://` |
 
-## Kompatibilität
+## Kompatibilitätsmatrix
 
-| | Python 3.10 | Python 3.11 | Python 3.12 | Python 3.13 |
-|---|:---:|:---:|:---:|:---:|
-| **Offline-Tests** | ✅ | ✅ | ✅ | ✅ |
-| **CUBRID 11.4** | ✅ | -- | ✅ | -- |
-| **CUBRID 11.2** | ✅ | -- | ✅ | -- |
-| **CUBRID 11.0** | ✅ | -- | ✅ | -- |
-| **CUBRID 10.2** | ✅ | -- | ✅ | -- |
+| Komponente | Unterstützte Versionen |
+|---|---|
+| Python | 3.10, 3.11, 3.12, 3.13, 3.14 |
+| CUBRID | 10.2, 11.0, 11.2, 11.4 |
+| SQLAlchemy | 2.0–2.1 |
+| Alembic | >=1.7 |
+| pycubrid (sync) | >=1.2.0,<2.0 |
+| pycubrid (async) | >=1.2.0,<2.0 |
+
+## FAQ
+
+### Wie verbinde ich mich mit SQLAlchemy zu CUBRID?
+
+```python
+from sqlalchemy import create_engine
+engine = create_engine("cubrid://dba:password@localhost:33000/demodb")
+```
+
+Für den Pure-Python-Treiber (kein C-Build erforderlich): `create_engine("cubrid+pycubrid://dba@localhost:33000/demodb")`
+
+### Unterstützt sqlalchemy-cubrid SQLAlchemy 2.0–2.1?
+
+Ja. sqlalchemy-cubrid wurde für SQLAlchemy 2.0–2.1 entwickelt und unterstützt die API im 2.0-Stil einschließlich `Session.execute()`, typisierter `Mapped[]`-Spalten und Statement-Caching.
+
+### Unterstützt sqlalchemy-cubrid Alembic-Migrationen?
+
+Ja. Installieren Sie mit `pip install "sqlalchemy-cubrid[alembic]"`. Der Dialekt registriert sich automatisch über einen Entry-Point. Beachten Sie, dass CUBRID DDL automatisch committet, daher sind Migrationen nicht transaktional.
+
+### Welche Python-Versionen werden unterstützt?
+
+Python 3.10, 3.11, 3.12, 3.13 und 3.14.
+
+### Unterstützt CUBRID RETURNING-Klauseln?
+
+Nein. CUBRID unterstützt weder `INSERT ... RETURNING` noch `UPDATE ... RETURNING`. Verwenden Sie stattdessen `cursor.lastrowid` oder `SELECT LAST_INSERT_ID()`.
+
+### Wie verwende ich ON DUPLICATE KEY UPDATE mit CUBRID?
+
+```python
+from sqlalchemy_cubrid import insert
+stmt = insert(users).values(name="Alice").on_duplicate_key_update(name="Alice Updated")
+```
+
+### Was ist der Unterschied zwischen `cubrid://` und `cubrid+pycubrid://`?
+
+`cubrid://` verwendet den C-Erweiterungstreiber (CUBRIDdb), der eine Kompilierung erfordert. `cubrid+pycubrid://` verwendet den Pure-Python-Treiber, der allein mit pip installiert wird — ohne Build-Werkzeuge. `cubrid+aiopycubrid://` verwendet die asynchrone Variante des Pure-Python-Treibers für die Verwendung mit `create_async_engine` und `AsyncSession`.
+
+### Unterstützt sqlalchemy-cubrid Async?
+
+Ja. Verwenden Sie `create_async_engine("cubrid+aiopycubrid://...")` mit dem pycubrid-Async-Treiber. Erfordert `pycubrid>=1.2.0,<2.0`. Alle Core- und ORM-Funktionen arbeiten mit `AsyncSession`.
+
+
+## Verwandte Projekte
+
+- [pycubrid](https://github.com/cubrid-labs/pycubrid) — Reiner Python-DB-API-2.0-Treiber für CUBRID
+- [cubrid-cookbook-python](https://github.com/cubrid-labs/cubrid-cookbook-python) — Produktionsreife Python-Beispiele für CUBRID
+
+## Roadmap
+
+Siehe [`ROADMAP.md`](../ROADMAP.md) für die Ausrichtung des Projekts und die nächsten Meilensteine.
+
+Für die Ökosystem-Perspektive siehe die [CUBRID Labs Ecosystem Roadmap](https://github.com/cubrid-labs/.github/blob/main/ROADMAP.md) und das [Project Board](https://github.com/orgs/cubrid-labs/projects/2).
 
 ## Mitwirken
 
-Richtlinien finden Sie in [CONTRIBUTING.md](../CONTRIBUTING.md) und die Einrichtung der Entwicklungsumgebung in [docs/DEVELOPMENT.md](DEVELOPMENT.md).
+Siehe [CONTRIBUTING.md](../CONTRIBUTING.md) für Hinweise und [docs/DEVELOPMENT.md](DEVELOPMENT.md) für die Entwicklungsumgebung.
 
 ## Sicherheit
 
-Melden Sie Schwachstellen per E-Mail -- siehe [SECURITY.md](../SECURITY.md). Erstellen Sie keine öffentlichen Issues für Sicherheitsbedenken.
+Melden Sie Schwachstellen per E-Mail -- siehe [SECURITY.md](../SECURITY.md). Erstellen Sie keine öffentlichen Issues für Sicherheitsprobleme.
 
 ## Lizenz
 
