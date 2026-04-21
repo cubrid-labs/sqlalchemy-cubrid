@@ -299,8 +299,8 @@ The CI pipeline tests the following matrix:
 ### Requirements
 
 - **Minimum threshold**: 95% line coverage
-- **Current offline collection**: 619 tests (`pytest --collect-only` excluding `test_integration.py` and `test_suite.py`)
-- **Current line coverage**: ~98.26% offline
+- **Current CI offline collection**: 603 tests (`pytest --collect-only` excluding `test_integration.py`, `test_suite.py`, and `test_aio_integration.py`, matching `.github/workflows/ci.yml` and `make test`)
+- **Current line coverage**: ~98.26% offline in the CI/make test configuration
 - CI enforces the threshold via `--cov-fail-under=95`
 
 ### Running Coverage
@@ -310,6 +310,7 @@ The CI pipeline tests the following matrix:
 pytest test/ -v \
   --ignore=test/test_integration.py \
   --ignore=test/test_suite.py \
+  --ignore=test/test_aio_integration.py \
   --cov=sqlalchemy_cubrid \
   --cov-report=term-missing \
   --cov-fail-under=95

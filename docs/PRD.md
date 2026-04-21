@@ -42,7 +42,7 @@ A complete ground-up rewrite delivering a modern CUBRID dialect for SQLAlchemy 2
 | CI/CD with version matrix | ✅ | ✅ Py 3.10–3.14 × CUBRID 10.2–11.4 |
 | Publishable to PyPI | ✅ | ✅ Release workflow on tag |
 | Alembic support | ✅ | ✅ CubridImpl auto-discovered + autogenerate |
-| ≥ 95% code coverage | ✅ | ✅ 99.45% (CI-enforced) |
+| ≥ 95% code coverage | ✅ | ✅ ~98.26% (CI-enforced) |
 | Comprehensive documentation | ✅ | ✅ 8 guide files + README |
 
 ---
@@ -53,22 +53,30 @@ A complete ground-up rewrite delivering a modern CUBRID dialect for SQLAlchemy 2
 
 ```mermaid
 graph TD
-    root["sqlalchemy_cubrid/ (8 modules, 968 statements)"]
-    init["__init__.py - Public API exports types, insert(), merge(), __version__"]
+    root["sqlalchemy_cubrid/ (12 Python modules + py.typed marker)"]
+    init["__init__.py - Public API exports types, insert(), merge(), replace(), trace_query(), __version__"]
+    compat["_compat.py - SQLAlchemy private API compatibility helpers"]
     base["base.py - CubridExecutionContext, CubridIdentifierPreparer"]
     compiler["compiler.py - CubridSQLCompiler, CubridDDLCompiler, CubridTypeCompiler"]
     dialect["dialect.py - CubridDialect reflection, connection, isolation levels"]
+    pycubrid["pycubrid_dialect.py - PyCubridDialect pure Python driver variant"]
+    aio["aio_pycubrid_dialect.py - PyCubridAsyncDialect async driver variant"]
     dml["dml.py - ON DUPLICATE KEY UPDATE (Insert), MERGE statement"]
+    trace["trace.py - Query tracing helper"]
     types["types.py - CUBRID type system numeric, string, LOB, collection"]
     req["requirements.py - SA 2.0 test requirement flags (40+ properties)"]
     alembic["alembic_impl.py - CubridImpl for Alembic migrations"]
     typed["py.typed - PEP 561 marker"]
 
     root --> init
+    root --> compat
     root --> base
     root --> compiler
     root --> dialect
+    root --> pycubrid
+    root --> aio
     root --> dml
+    root --> trace
     root --> types
     root --> req
     root --> alembic
@@ -273,7 +281,7 @@ stmt = (
 | `test_alembic.py` | 21 | Import, registry, entry-point, autogenerate |
 | `test_dialects.py` | ~23 | Edge cases, dialect config |
 | `test_trace.py` | 7 | Query trace utility |
-| **Total** | **396** | **99.45% coverage** |
+| **Total** | **619 offline tests** | **~98.26% coverage** |
 
 ### 4.2 Unreachable Lines (3)
 

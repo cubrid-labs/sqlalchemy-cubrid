@@ -101,16 +101,18 @@ sequenceDiagram
       CAS-->>Dialect: Column definitions
       
       SA->>Dialect: get_pk_constraint(connection, table_name)
-      Dialect->>CAS: SHOW INDEX IN "table_name" (filter PRIMARY)
-      CAS-->>Dialect: PK constraint info
+      Dialect->>CAS: SHOW COLUMNS IN "table_name" (collect PRI columns)
+      Dialect->>CAS: Optional db_constraint lookup for PK name
+      CAS-->>Dialect: PK columns (+ optional constraint name)
       
       SA->>Dialect: get_foreign_keys(connection, table_name)
       Dialect->>CAS: SHOW CREATE TABLE (parse FK clauses)
       CAS-->>Dialect: FK constraints
       
       SA->>Dialect: get_indexes(connection, table_name)
-      Dialect->>CAS: SHOW INDEX IN "table_name"
-      CAS-->>Dialect: Index definitions
+      Dialect->>CAS: SELECT ... FROM _db_index (batch PK/FK flags)
+      Dialect->>CAS: SHOW INDEXES IN "table_name"
+      CAS-->>Dialect: Non-PK/non-FK index definitions
     end
     
     SA-->>App: MetaData with reflected tables
