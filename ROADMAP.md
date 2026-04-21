@@ -3,13 +3,13 @@
 > **Last updated**: 2026-03-20
 >
 > This roadmap reflects current priorities. For the ecosystem-wide view, see the
-> [CUBRID Labs Ecosystem Roadmap](https://github.com/cubrid-labs/.github/blob/main/ROADMAP.md).
+> [CUBRID Labs Ecosystem Roadmap](https://github.com/cubrid-lab/.github/blob/main/ROADMAP.md).
 
 ## Links
 
-- 📋 [GitHub Milestones](https://github.com/cubrid-labs/sqlalchemy-cubrid/milestones)
-- 🗂️ [Org Project Board](https://github.com/orgs/cubrid-labs/projects/2)
-- 🌐 [Ecosystem Roadmap](https://github.com/cubrid-labs/.github/blob/main/ROADMAP.md)
+- 📋 [GitHub Milestones](https://github.com/cubrid-lab/sqlalchemy-cubrid/milestones)
+- 🗂️ [Org Project Board](https://github.com/orgs/cubrid-lab/projects/2)
+- 🌐 [Ecosystem Roadmap](https://github.com/cubrid-lab/.github/blob/main/ROADMAP.md)
 
 ## Current Release Line — v1.4.x Beta — Stabilization & Polish
 

@@ -41,10 +41,10 @@ with engine.connect() as conn:
 
 ## Project links
 
-- [GitHub](https://github.com/cubrid-labs/sqlalchemy-cubrid)
+- [GitHub](https://github.com/cubrid-lab/sqlalchemy-cubrid)
 - [PyPI](https://pypi.org/project/sqlalchemy-cubrid/)
-- [Changelog](https://github.com/cubrid-labs/sqlalchemy-cubrid/blob/main/CHANGELOG.md)
-- [Contributing](https://github.com/cubrid-labs/sqlalchemy-cubrid/blob/main/CONTRIBUTING.md)
+- [Changelog](https://github.com/cubrid-lab/sqlalchemy-cubrid/blob/main/CHANGELOG.md)
+- [Contributing](https://github.com/cubrid-lab/sqlalchemy-cubrid/blob/main/CONTRIBUTING.md)
 
 ---
 
@@ -3877,7 +3877,7 @@ flowchart TD
 
 ## Benchmark Results
 
-Source: [cubrid-benchmark](https://github.com/cubrid-labs/cubrid-benchmark)
+Source: [cubrid-benchmark](https://github.com/cubrid-lab/cubrid-benchmark)
 
 Environment: Intel Core i5-9400F @ 2.90GHz, 6 cores, Linux x86_64, Docker containers.
 
@@ -3928,7 +3928,7 @@ flowchart TD
 
 ## Running Benchmarks
 
-1. Clone: `git clone https://github.com/cubrid-labs/cubrid-benchmark`.
+1. Clone: `git clone https://github.com/cubrid-lab/cubrid-benchmark`.
 2. Start the benchmark database containers per the benchmark documentation.
 3. Run the Python benchmark suite to establish DBAPI baseline metrics.
 4. Run SQLAlchemy-specific scenarios on the same host and dataset shape.
@@ -5272,7 +5272,7 @@ contribute to sqlalchemy-cubrid.
 ### Quick Setup
 
 ```bash
-git clone https://github.com/cubrid-labs/sqlalchemy-cubrid.git
+git clone https://github.com/cubrid-lab/sqlalchemy-cubrid.git
 cd sqlalchemy-cubrid
 make install
 ```

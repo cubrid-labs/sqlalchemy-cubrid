@@ -509,7 +509,7 @@ class TestReflectionMethods:
     def test_get_indexes_excludes_fk_auto_indexes(self):
         """FK auto-indexes (``_db_index.is_foreign_key`` true) are filtered.
 
-        See cubrid-labs/sqlalchemy-cubrid#120 — otherwise Alembic
+        See cubrid-lab/sqlalchemy-cubrid#120 — otherwise Alembic
         autogenerate emits spurious drop_index/create_index diffs.
         """
         dialect = CubridDialect()

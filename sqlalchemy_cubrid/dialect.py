@@ -409,7 +409,7 @@ class CubridDialect(default.DefaultDialect):
         CUBRID exposes no queryable ``db_constraint`` view (despite older
         documentation referencing it), so the DDL string is the only
         reliable source for FK metadata that includes the referenced table
-        and columns. See cubrid-labs/sqlalchemy-cubrid#120.
+        and columns. See cubrid-lab/sqlalchemy-cubrid#120.
         """
         foreign_keys: list[ReflectedForeignKeyConstraint] = []
         try:
@@ -519,7 +519,7 @@ class CubridDialect(default.DefaultDialect):
         # name as the FK constraint) and these are an implementation detail
         # — if reported they cause Alembic autogenerate to emit spurious
         # ``op.drop_index`` / ``op.create_index`` diffs on every run.
-        # See cubrid-labs/sqlalchemy-cubrid#120.
+        # See cubrid-lab/sqlalchemy-cubrid#120.
         pk_indexes: set[str] = set()
         fk_indexes: set[str] = set()
         try:

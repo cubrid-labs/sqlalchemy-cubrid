@@ -26,7 +26,7 @@ and instructions for contributing to the project.
 
 ```bash
 # Clone the repository
-git clone https://github.com/cubrid-labs/sqlalchemy-cubrid.git
+git clone https://github.com/cubrid-lab/sqlalchemy-cubrid.git
 cd sqlalchemy-cubrid
 
 # Create a virtual environment
@@ -221,5 +221,5 @@ For feature requests, describe the use case and expected behavior.
 
 ## Questions?
 
-Open a [GitHub Discussion](https://github.com/cubrid-labs/sqlalchemy-cubrid/discussions)
-or file an [issue](https://github.com/cubrid-labs/sqlalchemy-cubrid/issues).
+Open a [GitHub Discussion](https://github.com/cubrid-lab/sqlalchemy-cubrid/discussions)
+or file an [issue](https://github.com/cubrid-lab/sqlalchemy-cubrid/issues).

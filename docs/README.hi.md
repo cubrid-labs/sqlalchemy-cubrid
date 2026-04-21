@@ -7,12 +7,12 @@
 <!-- BADGES:START -->
 [![PyPI version](https://img.shields.io/pypi/v/sqlalchemy-cubrid)](https://pypi.org/project/sqlalchemy-cubrid)
 [![python version](https://img.shields.io/pypi/pyversions/sqlalchemy-cubrid)](https://www.python.org)
-[![ci workflow](https://github.com/cubrid-labs/sqlalchemy-cubrid/actions/workflows/ci.yml/badge.svg)](https://github.com/cubrid-labs/sqlalchemy-cubrid/actions/workflows/ci.yml)
-[![integration-full workflow](https://github.com/cubrid-labs/sqlalchemy-cubrid/actions/workflows/integration-full.yml/badge.svg)](https://github.com/cubrid-labs/sqlalchemy-cubrid/actions/workflows/integration-full.yml)
-[![coverage](https://codecov.io/gh/cubrid-labs/sqlalchemy-cubrid/branch/main/graph/badge.svg)](https://codecov.io/gh/cubrid-labs/sqlalchemy-cubrid)
-[![license](https://img.shields.io/github/license/cubrid-labs/sqlalchemy-cubrid)](https://github.com/cubrid-labs/sqlalchemy-cubrid/blob/main/LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/cubrid-labs/sqlalchemy-cubrid)](https://github.com/cubrid-labs/sqlalchemy-cubrid)
-[![docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://cubrid-labs.github.io/sqlalchemy-cubrid/)
+[![ci workflow](https://github.com/cubrid-lab/sqlalchemy-cubrid/actions/workflows/ci.yml/badge.svg)](https://github.com/cubrid-lab/sqlalchemy-cubrid/actions/workflows/ci.yml)
+[![integration-full workflow](https://github.com/cubrid-lab/sqlalchemy-cubrid/actions/workflows/integration-full.yml/badge.svg)](https://github.com/cubrid-lab/sqlalchemy-cubrid/actions/workflows/integration-full.yml)
+[![coverage](https://codecov.io/gh/cubrid-lab/sqlalchemy-cubrid/branch/main/graph/badge.svg)](https://codecov.io/gh/cubrid-lab/sqlalchemy-cubrid)
+[![license](https://img.shields.io/github/license/cubrid-lab/sqlalchemy-cubrid)](https://github.com/cubrid-lab/sqlalchemy-cubrid/blob/main/LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/cubrid-lab/sqlalchemy-cubrid)](https://github.com/cubrid-lab/sqlalchemy-cubrid)
+[![docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://cubrid-lab.github.io/sqlalchemy-cubrid/)
 <!-- BADGES:END -->
 
 ---
@@ -59,7 +59,7 @@ flowchart TD
 
 - Python 3.10+
 - SQLAlchemy 2.0 – 2.1
-- [CUBRID-Python](https://github.com/CUBRID/cubrid-python) (C-extension) **या** [pycubrid](https://github.com/cubrid-labs/pycubrid) (pure Python)
+- [CUBRID-Python](https://github.com/CUBRID/cubrid-python) (C-extension) **या** [pycubrid](https://github.com/cubrid-lab/pycubrid) (pure Python)
 
 ## इंस्टॉलेशन
 
@@ -226,14 +226,14 @@ stmt = insert(users).values(name="Alice").on_duplicate_key_update(name="Alice Up
 
 ## संबंधित परियोजनाएँ
 
-- [pycubrid](https://github.com/cubrid-labs/pycubrid) — CUBRID के लिए शुद्ध Python DB-API 2.0 ड्राइवर
-- [cubrid-cookbook-python](https://github.com/cubrid-labs/cubrid-cookbook-python) — CUBRID के लिए production-ready Python उदाहरण
+- [pycubrid](https://github.com/cubrid-lab/pycubrid) — CUBRID के लिए शुद्ध Python DB-API 2.0 ड्राइवर
+- [cubrid-cookbook-python](https://github.com/cubrid-lab/cubrid-cookbook-python) — CUBRID के लिए production-ready Python उदाहरण
 
 ## रोडमैप
 
 इस परियोजना की दिशा और अगले milestones के लिए [`ROADMAP.md`](../ROADMAP.md) देखें।
 
-पूरे ecosystem के दृष्टिकोण के लिए [CUBRID Labs Ecosystem Roadmap](https://github.com/cubrid-labs/.github/blob/main/ROADMAP.md) और [Project Board](https://github.com/orgs/cubrid-labs/projects/2) देखें।
+पूरे ecosystem के दृष्टिकोण के लिए [CUBRID Labs Ecosystem Roadmap](https://github.com/cubrid-lab/.github/blob/main/ROADMAP.md) और [Project Board](https://github.com/orgs/cubrid-lab/projects/2) देखें।
 
 ## योगदान
 

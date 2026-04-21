@@ -80,7 +80,7 @@ cubrid = "sqlalchemy_cubrid.alembic_impl:CubridImpl"
 ### Setup
 
 ```bash
-git clone https://github.com/cubrid-labs/sqlalchemy-cubrid.git
+git clone https://github.com/cubrid-lab/sqlalchemy-cubrid.git
 cd sqlalchemy-cubrid
 make install          # pip install -e ".[dev]" + pytest-cov + pre-commit + tox
 ```
@@ -148,9 +148,9 @@ docker compose down -v                        # Cleanup
 - No Python 2 constructs (`basestring`, `getargspec`, etc.)
 - No empty `except` blocks
 
-## Development Workflow (cubrid-labs org standard)
+## Development Workflow (cubrid-lab org standard)
 
-All non-trivial work across cubrid-labs repositories MUST follow this 4-phase cycle:
+All non-trivial work across cubrid-lab repositories MUST follow this 4-phase cycle:
 
 1. **Oracle Design Review** — Consult Oracle before implementation to validate architecture, API surface, and approach. Raise concerns early.
 2. **Implementation** — Build the feature/fix with tests. Follow existing codebase patterns.
@@ -276,7 +276,7 @@ Types: `feat`, `fix`, `docs`, `chore`, `ci`, `style`, `test`, `refactor`
 ## Project Context — Performance Loop System
 
 > This repo provides **ORM-level validation** of the Performance Loop.
-> Board: [CUBRID Ecosystem Roadmap](https://github.com/orgs/cubrid-labs/projects/2)
+> Board: [CUBRID Ecosystem Roadmap](https://github.com/orgs/cubrid-lab/projects/2)
 
 ### Role
 

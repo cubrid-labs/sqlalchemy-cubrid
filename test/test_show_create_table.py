@@ -12,7 +12,7 @@ foreign key and unique constraint metadata.  This test module provides a
 comprehensive fixture corpus to lock the parsing behaviour against
 regressions.
 
-Addresses: https://github.com/cubrid-labs/sqlalchemy-cubrid/issues/125
+Addresses: https://github.com/cubrid-lab/sqlalchemy-cubrid/issues/125
 """
 
 from __future__ import annotations

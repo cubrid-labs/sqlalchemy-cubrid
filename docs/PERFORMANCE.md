@@ -40,7 +40,7 @@ flowchart TD
 
 ## Benchmark Results
 
-Source: [cubrid-benchmark](https://github.com/cubrid-labs/cubrid-benchmark)
+Source: [cubrid-benchmark](https://github.com/cubrid-lab/cubrid-benchmark)
 
 Environment: Intel Core i5-9400F @ 2.90GHz, 6 cores, Linux x86_64, Docker containers.
 
@@ -128,7 +128,7 @@ flowchart TD
 
 ## Running Benchmarks
 
-1. Clone: `git clone https://github.com/cubrid-labs/cubrid-benchmark`.
+1. Clone: `git clone https://github.com/cubrid-lab/cubrid-benchmark`.
 2. Start the benchmark database containers per the benchmark documentation.
 3. Run the Python benchmark suite to establish DBAPI baseline metrics.
 4. Run SQLAlchemy-specific scenarios on the same host and dataset shape.

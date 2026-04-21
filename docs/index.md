@@ -41,7 +41,7 @@ with engine.connect() as conn:
 
 ## Project links
 
-- [GitHub](https://github.com/cubrid-labs/sqlalchemy-cubrid)
+- [GitHub](https://github.com/cubrid-lab/sqlalchemy-cubrid)
 - [PyPI](https://pypi.org/project/sqlalchemy-cubrid/)
-- [Changelog](https://github.com/cubrid-labs/sqlalchemy-cubrid/blob/main/CHANGELOG.md)
-- [Contributing](https://github.com/cubrid-labs/sqlalchemy-cubrid/blob/main/CONTRIBUTING.md)
+- [Changelog](https://github.com/cubrid-lab/sqlalchemy-cubrid/blob/main/CHANGELOG.md)
+- [Contributing](https://github.com/cubrid-lab/sqlalchemy-cubrid/blob/main/CONTRIBUTING.md)

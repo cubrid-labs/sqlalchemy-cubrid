@@ -1,8 +1,8 @@
 site_name: sqlalchemy-cubrid
 site_description: SQLAlchemy 2.0 dialect for the CUBRID database
-site_author: cubrid-labs
-site_url: https://cubrid-labs.github.io/sqlalchemy-cubrid/
-repo_url: https://github.com/cubrid-labs/sqlalchemy-cubrid
+site_author: cubrid-lab
+site_url: https://cubrid-lab.github.io/sqlalchemy-cubrid/
+repo_url: https://github.com/cubrid-lab/sqlalchemy-cubrid
 edit_uri: edit/main/docs/
 
 theme:
@@ -48,8 +48,8 @@ nav:
       - Troubleshooting: TROUBLESHOOTING.md
   - Development:
       - Development Guide: DEVELOPMENT.md
-  - Changelog: https://github.com/cubrid-labs/sqlalchemy-cubrid/blob/main/CHANGELOG.md
-  - Contributing: https://github.com/cubrid-labs/sqlalchemy-cubrid/blob/main/CONTRIBUTING.md
+  - Changelog: https://github.com/cubrid-lab/sqlalchemy-cubrid/blob/main/CHANGELOG.md
+  - Contributing: https://github.com/cubrid-lab/sqlalchemy-cubrid/blob/main/CONTRIBUTING.md
 
 markdown_extensions:
   - admonition
@@ -78,7 +78,7 @@ validation:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/cubrid-labs/sqlalchemy-cubrid
+      link: https://github.com/cubrid-lab/sqlalchemy-cubrid
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/sqlalchemy-cubrid/
 

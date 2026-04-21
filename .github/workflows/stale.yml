@@ -8,7 +8,7 @@ on:
 jobs:
   stale-issues:
     runs-on: ubuntu-latest
-    if: github.repository == 'cubrid-labs/sqlalchemy-cubrid'
+    if: github.repository == 'cubrid-lab/sqlalchemy-cubrid'
     steps:
       - name: Stale issues and PRs
         uses: actions/stale@v10

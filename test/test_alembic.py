@@ -417,7 +417,7 @@ class TestCubridImplAutogenerate:
     def test_compare_type_text_vs_varchar_max_no_diff(self):
         """Text() vs VARCHAR(1073741823) must NOT be reported as a type change.
 
-        See cubrid-labs/sqlalchemy-cubrid#120 — CUBRID stores Text/CLOB/STRING
+        See cubrid-lab/sqlalchemy-cubrid#120 — CUBRID stores Text/CLOB/STRING
         as VARCHAR(1073741823) so reflection round-trips trip Alembic's
         default compare_type.
         """

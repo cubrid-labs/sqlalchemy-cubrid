@@ -5,7 +5,7 @@
 **Project**: sqlalchemy-cubrid
 **Current Version**: 1.4.0
 **Status**: Beta (actively maintained; async + JSON shipped)
-**Repository**: [github.com/cubrid-labs/sqlalchemy-cubrid](https://github.com/cubrid-labs/sqlalchemy-cubrid)
+**Repository**: [github.com/cubrid-lab/sqlalchemy-cubrid](https://github.com/cubrid-lab/sqlalchemy-cubrid)
 **License**: MIT
 
 ### 1.1 Problem Statement (Original)
@@ -536,7 +536,7 @@ AI agents can discover, learn, and recommend sqlalchemy-cubrid accurately.
 
 ### Cookbook Integration
 
-The [cubrid-cookbook](https://github.com/cubrid-labs/cubrid-cookbook) repository provides
+The [cubrid-cookbook](https://github.com/cubrid-lab/cubrid-cookbook) repository provides
 runnable examples for sqlalchemy-cubrid:
 
 | Example | Description |

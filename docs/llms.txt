@@ -6,23 +6,23 @@ sqlalchemy-cubrid provides a full SQLAlchemy 2.0 dialect for CUBRID. It supports
 
 ## Core Documentation
 
-- [Quick Start](https://cubrid-labs.github.io/sqlalchemy-cubrid/QUICKSTART/): Installation, first ORM model, basic CRUD operations
-- [Connection Guide](https://cubrid-labs.github.io/sqlalchemy-cubrid/CONNECTION/): URL formats, engine options, pooling, SSH tunnels, SSL
-- [ORM Cookbook](https://cubrid-labs.github.io/sqlalchemy-cubrid/ORM_COOKBOOK/): Models, relationships, queries, transactions, bulk operations
-- [DML Extensions](https://cubrid-labs.github.io/sqlalchemy-cubrid/DML_EXTENSIONS/): INSERT ON DUPLICATE KEY UPDATE, REPLACE INTO, MERGE INTO
-- [Type Mapping](https://cubrid-labs.github.io/sqlalchemy-cubrid/TYPES/): CUBRID-to-SQLAlchemy type mapping, custom types, JSON/LOB handling
+- [Quick Start](https://cubrid-lab.github.io/sqlalchemy-cubrid/QUICKSTART/): Installation, first ORM model, basic CRUD operations
+- [Connection Guide](https://cubrid-lab.github.io/sqlalchemy-cubrid/CONNECTION/): URL formats, engine options, pooling, SSH tunnels, SSL
+- [ORM Cookbook](https://cubrid-lab.github.io/sqlalchemy-cubrid/ORM_COOKBOOK/): Models, relationships, queries, transactions, bulk operations
+- [DML Extensions](https://cubrid-lab.github.io/sqlalchemy-cubrid/DML_EXTENSIONS/): INSERT ON DUPLICATE KEY UPDATE, REPLACE INTO, MERGE INTO
+- [Type Mapping](https://cubrid-lab.github.io/sqlalchemy-cubrid/TYPES/): CUBRID-to-SQLAlchemy type mapping, custom types, JSON/LOB handling
 
 ## Reference
 
-- [Isolation Levels](https://cubrid-labs.github.io/sqlalchemy-cubrid/ISOLATION_LEVELS/): Transaction isolation configuration and CUBRID-specific levels
-- [Alembic Migrations](https://cubrid-labs.github.io/sqlalchemy-cubrid/ALEMBIC/): Migration setup, autogenerate, batch operations
-- [Feature Support Matrix](https://cubrid-labs.github.io/sqlalchemy-cubrid/FEATURE_SUPPORT/): SQLAlchemy feature compatibility table
-- [Architecture](https://cubrid-labs.github.io/sqlalchemy-cubrid/ARCHITECTURE/): Dialect internals, compiler pipeline, type system
-- [Driver Compatibility](https://cubrid-labs.github.io/sqlalchemy-cubrid/DRIVER_COMPAT/): pycubrid version compatibility and known issues
-- [Support Matrix](https://cubrid-labs.github.io/sqlalchemy-cubrid/SUPPORT_MATRIX/): Python, SQLAlchemy, CUBRID version compatibility
+- [Isolation Levels](https://cubrid-lab.github.io/sqlalchemy-cubrid/ISOLATION_LEVELS/): Transaction isolation configuration and CUBRID-specific levels
+- [Alembic Migrations](https://cubrid-lab.github.io/sqlalchemy-cubrid/ALEMBIC/): Migration setup, autogenerate, batch operations
+- [Feature Support Matrix](https://cubrid-lab.github.io/sqlalchemy-cubrid/FEATURE_SUPPORT/): SQLAlchemy feature compatibility table
+- [Architecture](https://cubrid-lab.github.io/sqlalchemy-cubrid/ARCHITECTURE/): Dialect internals, compiler pipeline, type system
+- [Driver Compatibility](https://cubrid-lab.github.io/sqlalchemy-cubrid/DRIVER_COMPAT/): pycubrid version compatibility and known issues
+- [Support Matrix](https://cubrid-lab.github.io/sqlalchemy-cubrid/SUPPORT_MATRIX/): Python, SQLAlchemy, CUBRID version compatibility
 
 ## Optional
 
-- [Performance Guide](https://cubrid-labs.github.io/sqlalchemy-cubrid/PERFORMANCE/): Query optimization, connection pooling tuning, bulk operations
-- [Troubleshooting](https://cubrid-labs.github.io/sqlalchemy-cubrid/TROUBLESHOOTING/): Common errors, connection issues, migration problems
-- [Development Guide](https://cubrid-labs.github.io/sqlalchemy-cubrid/DEVELOPMENT/): Contributing, testing, release process
+- [Performance Guide](https://cubrid-lab.github.io/sqlalchemy-cubrid/PERFORMANCE/): Query optimization, connection pooling tuning, bulk operations
+- [Troubleshooting](https://cubrid-lab.github.io/sqlalchemy-cubrid/TROUBLESHOOTING/): Common errors, connection issues, migration problems
+- [Development Guide](https://cubrid-lab.github.io/sqlalchemy-cubrid/DEVELOPMENT/): Contributing, testing, release process

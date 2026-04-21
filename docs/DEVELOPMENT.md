@@ -37,7 +37,7 @@ contribute to sqlalchemy-cubrid.
 ### Quick Setup
 
 ```bash
-git clone https://github.com/cubrid-labs/sqlalchemy-cubrid.git
+git clone https://github.com/cubrid-lab/sqlalchemy-cubrid.git
 cd sqlalchemy-cubrid
 make install
 ```
