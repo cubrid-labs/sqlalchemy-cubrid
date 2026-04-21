@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-04-21
+
+### Changed
+- **Docs-only patch release** — aligns Beta-era documentation without runtime or packaging code changes
+- **Oracle audit fixes** — clarified reflection internals, `postfetch_lastrowid` behavior, SQLAlchemy private API dependency coverage, type reflection notes, and `ON DUPLICATE KEY UPDATE` semantics
+- **PRD and development docs alignment** — resolved internal contradictions across guide counts, entry points, CI matrix details, and unreachable-line notes
+- **README translation sync** — refreshed Korean, German, Russian, Chinese, and Hindi READMEs to match the English baseline
+
 ## [1.4.0] - 2026-04-20
 
 ### Added
