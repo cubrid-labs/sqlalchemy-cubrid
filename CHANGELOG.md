@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Validated
+- **Native pycubrid ping causally validated** — Tier 2 ORM benchmark in [cubrid-benchmark`2026-04-22_native-ping-hotpath`](https://github.com/cubrid-lab/cubrid-benchmark/tree/main/experiments/orm-overhead/runs/2026-04-22_native-ping-hotpath) (paired same-version A/B, 7 trials, bootstrap 95% CI) confirms `do_ping()` native CHECK_CAS path delivers a practical pre-ping hot-path win: SQLAlchemy Core `checkout_select_by_pk` +108.2% throughput [+107.8, +109.6], ORM `session_select_by_pk` +42.1% [+41.8, +43.9], with p50/p95 latency also reduced. Effect applies to short-lived checkout/session workloads with `pool_pre_ping=True` (typical web request pattern); steady-state long-connection workloads are unaffected.
+
 ## [1.4.2] - 2026-04-21
 
 ### Changed
