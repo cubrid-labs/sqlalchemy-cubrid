@@ -26,7 +26,7 @@ jobs:
       - name: Generate llms-full.txt
         run: python scripts/generate_llms_full.py
       - run: mkdocs build --strict
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: site
 
